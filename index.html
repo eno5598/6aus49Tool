@@ -3,11 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lotto 6aus49 Tool by EnoWeb • v1.3 (Full Archive)</title>
-
+<title>Lotto 6aus49 Tool by EnoWeb • v1.4 (Full archive, multi-file ZIP)</title>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
 <style>
   :root{ --cy:#00fff0; --mag:#ff00ea; --ink:#eaf7ff; --bg:#060712; --ok:#39ff88; --bad:#ff6b94; }
   body{background:radial-gradient(900px 700px at -10% -10%, rgba(0,255,240,.12), transparent 60%), radial-gradient(900px 700px at 110% -10%, rgba(255,0,234,.12), transparent 60%), var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui;}
@@ -29,7 +27,6 @@
   .file-label{cursor:pointer; padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); display:inline-flex; gap:8px; align-items:center;}
   .file-input{display:none}
   table th, table td { white-space: nowrap; }
-
   .map{display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap:6px;}
   .cell{position:relative; text-align:center; border-radius:10px; padding:8px 0; font-weight:800; border:1px solid rgba(0,255,255,.15);
         background:linear-gradient(180deg,#0e1530,#15204a); color:#bdfcff;}
@@ -46,7 +43,6 @@
     <button type="button" onclick="tab('ana', this)" class="nav-btn" id="btn-ana"><div>📊</div><span>Analyse</span></button>
   </div>
 
-  <!-- ARCHIV -->
   <div id="v-archiv" class="glass">
     <h2 class="text-xl font-bold mb-2">📂 Archiv</h2>
     <p id="statusText" class="text-sm mb-2">Noch kein Archiv geladen.</p>
@@ -59,17 +55,16 @@
         <button type="button" id="forceDlBtn" class="btn btn--amber">⬇️ ZIP speichern</button>
         <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener">🔗 Direktlink</a>
       </div>
-      <p class="text-xs text-gray-300 mt-2">Beim Öffnen der Seite wird automatisch versucht, die neueste Datei zu laden.</p>
+      <p class="text-xs text-gray-300 mt-2">Beim Öffnen: ZIP laden und <b>alle</b> TXT/CSV zusammenführen (losa/lomi/lotto).</p>
     </div>
 
     <div class="glass mb-3">
       <div class="font-semibold mb-2">Manuell laden</div>
       <label class="file-label">
-        📄 Datei auswählen
-        <input type="file" id="zipInput" class="file-input" accept=".zip,.txt,.csv">
+        📄 Dateien auswählen (mehrere möglich)
+        <input multiple type="file" id="zipInput" class="file-input" accept=".zip,.txt,.csv">
       </label>
       <span id="fileName" class="ml-2 text-sm opacity-80">Keine Datei ausgewählt</span>
-      <div class="badge mt-2">Tipp: ZIP/TXT/CSV per Drag & Drop auf die Seite ziehen.</div>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
@@ -81,7 +76,6 @@
     <p id="freshHint" class="text-xs opacity-80 mt-2"></p>
   </div>
 
-  <!-- GENERIEREN -->
   <div id="v-gen" class="glass hidden">
     <h2 class="text-xl font-bold mb-2">⚡ Generieren</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -127,7 +121,6 @@
     <div id="cards" class="mt-3"></div>
   </div>
 
-  <!-- ANALYSE -->
   <div id="v-ana" class="glass hidden">
     <h2 class="text-xl font-bold mb-2">📊 Analyse</h2>
     <div id="analysisBox" class="mt-1 text-sm"></div>
@@ -136,7 +129,6 @@
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
 function tab(name, btn){
   ['archiv','gen','ana'].forEach(n=>$('#v-'+n).classList.add('hidden'));
@@ -145,11 +137,7 @@ function tab(name, btn){
   if(btn) btn.classList.add('active');
 }
 
-let draws=[]; // full
-let freqMain=Array(50).fill(0);
-let freqSuper=Array(10).fill(0);
-let generated=[];
-
+let draws=[]; let freqMain=Array(50).fill(0); let freqSuper=Array(10).fill(0); let generated=[];
 const ARCH_KEY='lz_archive_v1'; const LATEST_REF_KEY='lz_latest_ref_date_v1'; let latestRefDate = localStorage.getItem(LATEST_REF_KEY) || null;
 
 function computeFreshnessLabel(endIso){
@@ -161,21 +149,13 @@ function computeFreshnessLabel(endIso){
   if(days<=14) return 'aktuell'; if(days<=60) return `ok (${days} Tage alt)`; return `veraltet (${days} Tage alt)`;
 }
 function setKPIs(){
-  if(!draws.length){ $('#kpiCount').textContent='–'; $('#kpiFrom').textContent='–'; $('#kpiTo').textContent='–'; $('#kpiFresh').textContent='–'; $('#freshHint').textContent=''; return; }
+  if(!draws.length){ $('#kpiCount').textContent='–'; $('#kpiFrom').textContent='–'; $('#kpiTo').textContent='–'; $('#kpiFresh').textContent='–'; return; }
   $('#kpiCount').textContent=draws.length; $('#kpiFrom').textContent=draws[0].date; $('#kpiTo').textContent=draws.at(-1).date;
-  $('#kpiFresh').textContent=computeFreshnessLabel(draws.at(-1).date); $('#freshHint').textContent = latestRefDate ? `Neuestes Referenz-Ende: ${latestRefDate}` : '';
+  $('#kpiFresh').textContent=computeFreshnessLabel(draws.at(-1).date);
 }
 
-/* JSZip ensure */
-async function ensureJSZip(){
-  if (window.JSZip) return true;
-  const cdns = ['https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js','https://unpkg.com/jszip@3.10.1/dist/jszip.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
-  for(const src of cdns){
-    try{ await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.async=true; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); if(window.JSZip) return true; }catch{}
-  } return false;
-}
+async function ensureJSZip(){ if(window.JSZip) return true; return false; }
 
-/* Download via proxies */
 async function fetchWithProxies(url){
   const trials=[url,'https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url)];
   let last=null;
@@ -186,31 +166,30 @@ async function fetchWithProxies(url){
       if(ct.includes('zip') || u.endsWith('.zip')){
         const ok = await ensureJSZip(); if(!ok) throw new Error('JSZip nicht verfügbar.');
         const blob=await res.blob(); const zip=await JSZip.loadAsync(blob); const entries=Object.values(zip.files);
-        let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-        if(!entry) throw new Error('ZIP ohne TXT/CSV.'); const text=await entry.async('string'); return text;
+        const wanted = entries.filter(f=>/\.(txt|csv)$/i.test(f.name));
+        if(!wanted.length) throw new Error('ZIP ohne TXT/CSV.');
+        let combined=''; for(const f of wanted){ combined += "\n" + await f.async('string'); }
+        return combined;
       } else { return await res.text(); }
     }catch(e){ last=e; }
   } throw last||new Error('Download fehlgeschlagen');
 }
 
-/* Parser */
 function parseArchiveText(txt, source='manual'){
   try{
-    txt=txt.replace(/^\uFEFF/,'');
+    txt=txt.replace(/^﻿/,'');
     const lines = txt.replace(/\r\n?/g,'\n').split('\n').map(l=>l.trim()).filter(Boolean);
     const cleaned = lines.filter(l => (l.match(/\d+/g)||[]).length >= 6);
     function iso(y,m,d){ const dt=new Date(+y, +m-1, +d); return isNaN(dt)? null : dt.toISOString().slice(0,10); }
-    const regDMY=/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})$/, regYMD=/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/;
+    const regDMY=/(^|\s)(\d{1,2})[.\-\/]?(\d{1,2})[.\-\/]?(\d{2,4})(\s|$)/;
     function parseLine(line){
       const t=line.split(/;|,|\t|\s+/).filter(Boolean); let date=null,rest=[];
-      if(t.length&&regDMY.test(t[0])){const m=t[0].match(regDMY); date=iso(m[3],m[2],m[1]); rest=t.slice(1);}
-      else if(t.length&&regYMD.test(t[0])){const m=t[0].match(regYMD); date=iso(m[1],m[2],m[3]); rest=t.slice(1);}
-      else{rest=t.slice(0);}
+      if(/tag|monat|jahr/i.test(line) && t.length < 5) return null;
+      if(t.length>=3 && /^\d+$/.test(t[0]) && /^\d+$/.test(t[1]) && /^\d+$/.test(t[2])){ date=iso(t[2],t[1],t[0]); rest=t.slice(3); }
+      else{ const m=line.match(regDMY); if(m){ date=iso(m[4],m[3],m[2]); rest=line.replace(regDMY,' ').trim().split(/;|,|\t|\s+/).filter(Boolean); } else { rest=t.slice(0);} }
       const nums=rest.map(Number).filter(n=>!Number.isNaN(n));
-      if(!date){ const only=(line.match(/\d+/g)||[]).map(Number); if(only.length>=6){ const [a,b,c]=only.slice(0,3); const d=iso(c,b,a); if(d) date=d; } }
       const main = nums.filter(n=>n>=1&&n<=49).slice(0,6).sort((a,b)=>a-b);
-      let superZ = null; const findLast=(arr,p)=>{ for(let i=arr.length-1;i>=0;i--){ if(p(arr[i])) return arr[i]; } };
-      const supCand = findLast(nums, n=>n>=0 && n<=9); if(supCand!==undefined) superZ = supCand;
+      let superZ = null; for(let i=nums.length-1;i>=0;i--){ if(nums[i]>=0&&nums[i]<=9){ superZ=nums[i]; break; } }
       if(!date||main.length!==6) return null;
       return {date, main, super:(superZ===null? null : superZ)};
     }
@@ -219,12 +198,11 @@ function parseArchiveText(txt, source='manual'){
     if(!draws.length) throw new Error('Keine gültigen Ziehungen erkannt.');
     draws.sort((a,b)=>a.date.localeCompare(b.date));
     draws.forEach(d=>{ d.main.forEach(n=>freqMain[n]++); if(d.super!=null) freqSuper[d.super]++; });
-    localStorage.setItem(ARCH_KEY, txt); if(source==='latest'){ latestRefDate = draws.at(-1).date; localStorage.setItem(LATEST_REF_KEY, latestRefDate); }
+    localStorage.setItem(ARCH_KEY, txt); if(source==='latest'){ localStorage.setItem(LATEST_REF_KEY, draws.at(-1).date); }
     $('#statusText').textContent='Archiv geladen ✔'; setKPIs(); buildMap();
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 }
 
-/* Map */
 function buildMap(highlight=[]){
   const host = $('#numMap'); host.innerHTML=''; const max = Math.max(...freqMain.slice(1)) || 1;
   for(let n=1;n<=49;n++){
@@ -235,50 +213,46 @@ function buildMap(highlight=[]){
   }
 }
 
-/* Archiv Buttons */
 document.getElementById('loadLatestBtn').addEventListener('click', async ()=>{
-  const url=$('#archiveUrl').value.trim(); $('#statusText').textContent='Lade neuestes Archiv…';
+  const url=$('#archiveUrl').value.trim(); $('#statusText').textContent='Lade neueste ZIP…';
   try{ const text=await fetchWithProxies(url); parseArchiveText(text, 'latest'); }
   catch(e){ $('#statusText').innerHTML="Download nicht möglich. <a class='underline' target='_blank' href='"+url+"'>Manuell öffnen</a>."; }
 });
 document.getElementById('forceDlBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim();
-  const trials=['https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url),url];
-  let last=null; for(const u of trials){
-    try{ const res=await fetch(u); if(!res.ok) throw new Error('HTTP '+res.status);
-      const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href); return;
-    }catch(e){ last=e; }
-  } alert('Direkt-Download nicht möglich: '+(last?.message||'Unbekannt'));
+  try{ const res=await fetch(url); const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href); }catch(e){ alert('Direkt-Download nicht möglich.'); }
 });
 (function(){ const u=$('#archiveUrl').value.trim(); $('#directDl').href=u; })();
 
-/* File/Drop */
 document.getElementById('zipInput').addEventListener('change', async (e)=>{
-  const file=e.target.files?.[0]; if(!file) return; $('#fileName').textContent=file.name;
+  const files=Array.from(e.target.files||[]); if(!files.length) return; $('#fileName').textContent=files.map(f=>f.name).join(', ');
   try{
-    let text=''; if(file.name.toLowerCase().endsWith('.zip')){
-      if(!(await ensureJSZip())){ alert('JSZip nicht verfügbar – bitte ZIP entpacken und TXT/CSV hochladen.'); return; }
-      const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-      let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-      if(!entry) throw new Error('ZIP ohne TXT/CSV.'); text=await entry.async('string');
-    }else{ text=await file.text(); } parseArchiveText(text, 'manual');
+    let combined='';
+    for(const file of files){
+      if(file.name.toLowerCase().endsWith('.zip')){
+        const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
+        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined += "\n" + await f.async('string'); } }
+      }else{ combined += "\n" + await file.text(); }
+    }
+    parseArchiveText(combined, 'manual');
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
 });
 document.body.addEventListener('dragover', e=>{ e.preventDefault(); });
 document.body.addEventListener('drop', async e=>{
-  e.preventDefault(); const file=e.dataTransfer?.files?.[0]; if(!file) return;
-  $('#fileName').textContent = file.name; $('#statusText').textContent='Lade Datei…';
+  e.preventDefault(); const files=Array.from(e.dataTransfer?.files||[]); if(!files.length) return;
+  $('#fileName').textContent = files.map(f=>f.name).join(', '); $('#statusText').textContent='Lade Dateien…';
   try{
-    let text=''; if(file.name.toLowerCase().endsWith('.zip')){
-      if(!(await ensureJSZip())){ alert('JSZip nicht verfügbar – bitte ZIP entpacken und TXT/CSV hochladen.'); return; }
-      const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-      let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-      if(!entry) throw new Error('ZIP ohne TXT/CSV.'); text=await entry.async('string');
-    }else{ text=await file.text(); } parseArchiveText(text, 'manual');
+    let combined='';
+    for(const file of files){
+      if(file.name.toLowerCase().endsWith('.zip')){
+        const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
+        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined += "\n" + await f.async('string'); } }
+      }else{ combined += "\n" + await file.text(); }
+    }
+    parseArchiveText(combined, 'manual');
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 });
 
-/* Gruppen & Generator */
 const GROUPS=[{label:'1–10',from:1,to:10},{label:'11–20',from:11,to:20},{label:'21–30',from:21,to:30},{label:'31–40',from:31,to:40},{label:'41–49',from:41,to:49}];
 const SGROUPS=[{label:'0–4',from:0,to:4},{label:'5–9',from:5,to:9}];
 
@@ -301,13 +275,11 @@ function buildSuperUI(){
   });
   $$('#superControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
 }
-
 function setCounter(el, val, total){ el.textContent = `${val}/${total}`; el.classList.toggle('green', val===total); el.classList.toggle('red', val!==total); }
 function updateGroupCounters(){
   let sumG=0; $$('#groupControls select').forEach(s=>{ const v=+s.value||0; sumG+=v; s.parentElement.lastChild.textContent=v; });
   setCounter($('#mainCounter'), sumG, 6);
-  let sumS = $('#useSuper').checked && $('#superManual').checked ?
-    $$('#superControls select').reduce((a,s)=>a+(+s.value||0),0) : 1;
+  let sumS = $('#useSuper').checked && $('#superManual').checked ? $$('#superControls select').reduce((a,s)=>a+(+s.value||0),0) : 1;
   setCounter($('#superCounter'), sumS, 1);
   const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
   if(sumG!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; }
@@ -337,15 +309,12 @@ function generateOne(){
   const sumWant = want.reduce((a,b)=>a+b,0);
   const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
   if(sumWant!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; throw new Error('Gruppen nicht vollständig.'); }
-
   const r=draws.slice(-100);
   const fm=Array(50).fill(1); r.forEach(d=>d.main.forEach(n=>fm[n]++));
   const maxM=Math.max(...fm.slice(1));
   const w=n=>Math.ceil(3*fm[n]/maxM);
-
   let main=[]; GROUPS.forEach((g,i)=>{ const need=want[i]; if(need>0){ main.push(...pickFromRange(g.from,g.to,main,need,w)); } });
   main = Array.from(new Set(main)).sort((a,b)=>a-b).slice(0,6);
-
   let s=null;
   if($('#useSuper').checked){
     if($('#superManual').checked){
@@ -367,7 +336,6 @@ async function printTip(outEl, index, tip){
   outEl.append("\n"); outEl.scrollTop = outEl.scrollHeight;
   buildMap(tip.main);
 }
-
 function analyseVariant(tip){
   let exact=0, hit6=0, hit5=0, hit4=0, hit3=0, exactWithSuper=0;
   for(const d of draws){
@@ -379,7 +347,6 @@ function analyseVariant(tip){
   }
   return {exact, exactWithSuper, hit6, hit5, hit4, hit3};
 }
-
 function tipCard(idx, tip){
   const a = analyseVariant(tip);
   const card=document.createElement('div'); card.className='glass mb-3';
@@ -407,8 +374,6 @@ function tipCard(idx, tip){
   card.querySelector('.del-btn').onclick = ()=>{ card.remove(); generated = generated.filter(g=> g!==tip); };
   return card;
 }
-
-/* Generate / Analyse buttons */
 $('#generateBtn').addEventListener('click', async ()=>{
   if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; }
   const total = +$('#kombis').value || 1;
@@ -427,7 +392,6 @@ $('#generateBtn').addEventListener('click', async ()=>{
   }
 });
 $('#clearGeneratedBtn').addEventListener('click', ()=>{ generated=[]; $('#cards').innerHTML=''; $('#liveOutput').textContent=''; buildMap([]); });
-
 $('#analyseAllBtn').addEventListener('click', ()=>{
   if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; }
   let html = '<div class="glass mt-2"><div class="font-bold mb-2">Auswertung der generierten Kombinationen (komplettes Archiv)</div>';
@@ -451,7 +415,6 @@ $('#analyseAllBtn').addEventListener('click', ()=>{
   html += '</tbody></table></div></div>'; $('#analysisBox').innerHTML = html; tab('ana', $('#btn-ana'));
 });
 
-/* Auto-load on open */
 async function tryAutoLoad(){
   const url=$('#archiveUrl').value.trim();
   try{ const text=await fetchWithProxies(url); parseArchiveText(text,'latest'); }
@@ -459,10 +422,9 @@ async function tryAutoLoad(){
 }
 function init(){
   const u=$('#archiveUrl').value.trim(); $('#directDl').href=u;
-  buildGroupUI(); buildSuperUI();
   const saved=localStorage.getItem(ARCH_KEY);
   if(saved){ try{ parseArchiveText(saved,'manual'); $('#statusText').textContent='Archiv aus Speicher geladen ✔'; }catch{} }
-  latestRefDate = localStorage.getItem(LATEST_REF_KEY) || latestRefDate; setKPIs(); buildMap([]);
+  setKPIs(); buildMap([]);
   setTimeout(tryAutoLoad, 400);
 }
 init();

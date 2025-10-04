@@ -18,7 +18,6 @@
   .nav-btn.active{outline:2px solid rgba(255,255,255,.15); box-shadow:0 0 20px rgba(0,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.1);}
   .chip{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:10px;margin:4px;font-weight:800;font-size:.9rem;color:#bdfcff;background:linear-gradient(180deg,#0e1530,#15204a);border:1px solid rgba(0,255,255,.25);}
   .chip.super{color:#fff3d1;background:linear-gradient(180deg,#2b1f0e,#433516);border-color:rgba(255,217,0,.35)}
-  .chip.sel{background:linear-gradient(180deg,rgba(0,255,240,.25),rgba(0,255,240,.05)); box-shadow:0 0 16px rgba(0,255,240,.35), inset 0 0 0 1px rgba(0,255,255,.45); }
   .badge{background:rgba(255,255,255,.06); border:1px solid rgba(140,170,255,.22); border-radius:999px; padding:.2rem .6rem; font-size:.74rem;}
   .counter{padding:.2rem .55rem;border-radius:999px;font-weight:700}
   .counter.red{background:#3a1520;border:1px solid var(--bad)}
@@ -52,9 +51,9 @@
         <input id="archiveUrl" class="bg-gray-900 p-2 rounded flex-1" value="https://www.lotto-bayern.de/static/gamebroker_2/de/download_files/archiv_lotto.zip">
         <button type="button" id="loadLatestBtn" class="btn btn--green">📥 Neueste laden</button>
         <button type="button" id="forceDlBtn" class="btn btn--amber">⬇️ ZIP speichern</button>
-        <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener">🔗 Direktlink</a>
+        <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener noreferrer">🔗 Direktlink</a>
       </div>
-      <p class="text-xs text-gray-300 mt-2">Lädt via CORS‑freundliche Proxys und entpackt im Browser (JSZip). „Direktlink“ öffnet die Original‑URL.</p>
+      <p class="text-xs text-gray-300 mt-2">Mehrere CORS‑Proxys als Fallback. Falls alles blockiert wird: ZIP manuell laden und hier ablegen.</p>
     </div>
 
     <div class="glass mb-3">
@@ -94,7 +93,7 @@
           <input id="useSuper" type="checkbox" checked><span class="text-sm">Superzahl berücksichtigen</span>
         </label>
         <label class="inline-flex items-center gap-2">
-          <input id="superManual" type="checkbox"><span class="text-sm">Superzahl‑Gruppen vorgeben</span>
+          <input id="superManual" type="checkbox"><span class="text-sm">Superzahl-Gruppen vorgeben</span>
         </label>
       </div>
     </div>
@@ -168,35 +167,37 @@ function setKPIs(){
 }
 
 /* ======= Download/Entpacken ======= */
-async function ensureJSZip(){ return !!window.JSZip; }
-async function fetchWithProxies(url){
+async function fetchZipArrayBuffer(url){
   const trials=[
     url,
     'https://cors.isomorphic-git.org/'+url,
     'https://api.allorigins.win/raw?url='+encodeURIComponent(url),
     'https://thingproxy.freeboard.io/fetch/'+url,
-    'https://corsproxy.io/?'+encodeURIComponent(url)
+    'https://corsproxy.io/?'+encodeURIComponent(url),
+    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),
+    'https://yacdn.org/proxy/'+url.replace(/^https?:\/\//,'')
   ];
   let last=null;
   for(const u of trials){
     try{
-      const res=await fetch(u);
+      const res=await fetch(u, {cache:'no-store'});
       if(!res.ok) throw new Error('HTTP '+res.status);
-      const ct=res.headers.get('content-type')||'';
-      if(ct.includes('zip') || u.endsWith('.zip')){
-        if(!(await ensureJSZip())) throw new Error('JSZip nicht verfügbar.');
-        const blob=await res.blob();
-        const zip=await JSZip.loadAsync(blob);
-        const entries=Object.values(zip.files);
-        let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /lotto/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-        if(!entry) throw new Error('ZIP ohne TXT/CSV.');
-        const text=await entry.async('string'); return text;
-      }else{
-        return await res.text();
-      }
+      // Für ZIP immer ArrayBuffer lesen – auch wenn Content-Type fehlt
+      const buf=await res.arrayBuffer();
+      return buf;
     }catch(e){ last=e; }
   }
   throw last||new Error('Download fehlgeschlagen');
+}
+
+async function loadZipAndParse(buf){
+  const zip=await JSZip.loadAsync(buf);
+  const entries=Object.values(zip.files);
+  // mögliche Dateinamen: archiv_lotto.csv, lotto_6aus49.txt etc.
+  let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
+  if(!entry) throw new Error('ZIP ohne TXT/CSV.');
+  const text=await entry.async('string');
+  parseArchiveText(text,'latest');
 }
 
 /* ======= Parser ======= */
@@ -215,9 +216,9 @@ function parseArchiveText(txt, source='manual'){
       const nums=rest.map(Number).filter(n=>!Number.isNaN(n));
       if(!date){ const only=(line.match(/\d+/g)||[]).map(Number); if(only.length>=6){ const [a,b,c]=only.slice(0,3); const d=iso(c,b,a); if(d) date=d; } }
       const main = nums.filter(n=>n>=1&&n<=49).slice(0,6).sort((a,b)=>a-b);
-      // Superzahl 0-9, oft am Ende
+      // Superzahl 0-9 (wenn vorhanden, meist am Ende)
       let superZ = null;
-      const supCand = nums.find(n=>n>=0 && n<=9);
+      const supCand = nums.findLast ? nums.findLast(n=>n>=0 && n<=9) : nums.reverse().find(n=>n>=0 && n<=9);
       if(supCand!==undefined) superZ = supCand;
       if(!date||main.length!==6) return null;
       return {date, main, super: (superZ===null? null : superZ)};
@@ -235,38 +236,48 @@ function parseArchiveText(txt, source='manual'){
 }
 
 /* ======= Archiv Buttons ======= */
+function updateDirectLink(){ const u=$('#archiveUrl').value.trim(); const a=$('#directDl'); a.href=u; }
+updateDirectLink();
+$('#archiveUrl').addEventListener('input', updateDirectLink);
+
+document.getElementById('directDl').addEventListener('click', (e)=>{
+  e.preventDefault();
+  const url=$('#archiveUrl').value.trim();
+  // explizit neues Tab öffnen (manche Browser ignorieren href bei file:// Ursprüngen)
+  window.open(url, '_blank', 'noopener');
+});
+
 document.getElementById('loadLatestBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim();
   $('#statusText').textContent='Lade neuestes Archiv…';
-  try{ const text=await fetchWithProxies(url); parseArchiveText(text,'latest'); }
-  catch(e){ $('#statusText').innerHTML="Download nicht möglich. <a class='underline' target='_blank' href='"+url+"'>Manuell öffnen</a>."; }
+  try{
+    const buf=await fetchZipArrayBuffer(url);
+    await loadZipAndParse(buf);
+  }catch(e){
+    $('#statusText').textContent='Download nicht möglich: '+(e?.message||e);
+  }
 });
 document.getElementById('forceDlBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim();
-  const trials=['https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url),url];
-  let last=null;
-  for(const u of trials){
-    try{
-      const res=await fetch(u); if(!res.ok) throw new Error('HTTP '+res.status);
-      const blob=await res.blob();
-      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href);
-      return;
-    }catch(e){ last=e; }
+  $('#statusText').textContent='Lade ZIP…';
+  try{
+    const buf=await fetchZipArrayBuffer(url);
+    const blob=new Blob([buf],{type:'application/zip'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href);
+    $('#statusText').textContent='ZIP gespeichert.';
+  }catch(e){
+    $('#statusText').textContent='Direkt-Download nicht möglich: '+(e?.message||e);
   }
-  alert('Direkt-Download nicht möglich: '+(last?.message||'Unbekannt'));
 });
-(function(){ const u=$('#archiveUrl').value.trim(); $('#directDl').href=u; })();
 
 document.getElementById('zipInput').addEventListener('change', async (e)=>{
   const file=e.target.files?.[0]; if(!file) return; $('#fileName').textContent=file.name;
   try{
     let text='';
     if(file.name.toLowerCase().endsWith('.zip')){
-      if(!(await ensureJSZip())){ alert('JSZip nicht verfügbar – bitte ZIP entpacken und TXT/CSV hochladen.'); return; }
-      const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-      let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /lotto/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-      if(!entry) throw new Error('ZIP ohne TXT/CSV.');
-      text=await entry.async('string');
+      const buf=await file.arrayBuffer();
+      await loadZipAndParse(buf);
+      return;
     }else{ text=await file.text(); }
     parseArchiveText(text,'manual');
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
@@ -277,15 +288,13 @@ document.body.addEventListener('drop', async e=>{
   const file=e.dataTransfer?.files?.[0]; if(!file) return;
   $('#fileName').textContent=file.name;
   try{
-    let text='';
     if(file.name.toLowerCase().endsWith('.zip')){
-      if(!(await ensureJSZip())){ alert('JSZip nicht verfügbar – bitte ZIP entpacken und TXT/CSV hochladen.'); return; }
-      const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-      let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /lotto/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-      if(!entry) throw new Error('ZIP ohne TXT/CSV.');
-      text=await entry.async('string');
-    }else{ text=await file.text(); }
-    parseArchiveText(text,'manual');
+      const buf=await file.arrayBuffer();
+      await loadZipAndParse(buf);
+    }else{
+      const text=await file.text();
+      parseArchiveText(text,'manual');
+    }
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
 });
 
@@ -339,14 +348,9 @@ function updateGroupCounters(){
   if(sumG!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; }
   if($('#useSuper').checked && $('#superManual').checked && sumS!==1){ err.classList.remove('hidden'); err.textContent='Superzahl-Summe muss 1 sein.'; }
 }
-buildGroupUI();
-buildSuperUI();
-
+buildGroupUI(); buildSuperUI();
 $('#useSuper').addEventListener('change', updateGroupCounters);
-$('#superManual').addEventListener('change', e=>{
-  $('#superControls').classList.toggle('hidden', !e.target.checked);
-  updateGroupCounters();
-});
+$('#superManual').addEventListener('change', e=>{ $('#superControls').classList.toggle('hidden', !e.target.checked); updateGroupCounters(); });
 
 /* ======= Helpers ======= */
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
@@ -357,7 +361,6 @@ function pickFromRange(from,to,avoid,count,weightFn){
   return res;
 }
 function superAuto(){
-  // einfache Mischung aus Häufigkeit + Zufall
   const fs=[...freqSuper]; const m=Math.max(...fs)||1;
   const w = s=> 1 + Math.round(3*(fs[s]/m));
   const r = pickFromRange(0,9,[],1,w);
@@ -366,7 +369,7 @@ function superAuto(){
 
 /* ======= Generator (nur Gruppenmodus) ======= */
 function generateOne(){
-  if(!draws.length){ // Fallback ohne Archiv
+  if(!draws.length){
     const main = pickFromRange(1,49,[],6).sort((a,b)=>a-b);
     const s = $('#useSuper').checked ? superAuto() : null;
     return {main, super:s};
@@ -376,7 +379,6 @@ function generateOne(){
   const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
   if(sumWant!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; throw new Error('Gruppen nicht vollständig.'); }
 
-  // leichte Gewichtung nach jüngster Frequenz (letzte 100 Ziehungen)
   const r=draws.slice(-100);
   const fm=Array(50).fill(1); r.forEach(d=>d.main.forEach(n=>fm[n]++));
   const maxM=Math.max(...fm.slice(1));
@@ -412,16 +414,13 @@ async function printTip(outEl, index, tip){
 }
 
 function analyseVariant(tip){
-  let exact=0, hit6=0, hit5=0, hit4=0, hit3=0;
-  let exactWithSuper=0;
+  let exact=0, hit6=0, hit5=0, hit4=0, hit3=0, exactWithSuper=0;
   for(const d of draws){
     const mMatch = tip.main.filter(x=>d.main.includes(x)).length;
-    if(mMatch===6) hit6++;
+    if(mMatch===6){ hit6++; exact++; if(tip.super!=null && d.super!=null && tip.super===d.super) exactWithSuper++; }
     if(mMatch===5) hit5++;
     if(mMatch===4) hit4++;
     if(mMatch===3) hit3++;
-    if(mMatch===6) exact++;
-    if(tip.super!=null && d.super!=null && mMatch===6 && tip.super===d.super) exactWithSuper++;
   }
   return {exact, exactWithSuper, hit6, hit5, hit4, hit3};
 }
@@ -479,7 +478,6 @@ $('#clearGeneratedBtn').addEventListener('click', ()=>{ generated=[]; $('#cards'
 
 $('#analyseAllBtn').addEventListener('click', ()=>{
   if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; }
-  // Tabelle: pro Tip – 6/5/4 Richtige + exakt (+SZ)
   let html = '<div class="glass mt-2"><div class="font-bold mb-2">Auswertung der generierten Kombinationen</div>';
   html += '<div class="overflow-auto"><table class="text-sm min-w-full"><thead><tr>';
   html += '<th class="px-2 py-1 text-left">#</th><th class="px-2 py-1 text-left">Kombi</th><th class="px-2 py-1">6R</th><th class="px-2 py-1">5R</th><th class="px-2 py-1">4R</th><th class="px-2 py-1">3R</th><th class="px-2 py-1">Exakt6</th><th class="px-2 py-1">Exakt6+SZ</th>';

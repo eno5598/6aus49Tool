@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lotto 6aus49 Tool by EnoWeb</title>
+<title>Lotto 6aus49 Tool by EnoWeb • v1.0</title>
 
-<!-- libs -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 
@@ -18,7 +17,8 @@
   .nav-btn.active{outline:2px solid rgba(255,255,255,.15); box-shadow:0 0 20px rgba(0,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.1);}
   .chip{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:10px;margin:4px;font-weight:800;font-size:.9rem;color:#bdfcff;background:linear-gradient(180deg,#0e1530,#15204a);border:1px solid rgba(0,255,255,.25);}
   .chip.super{color:#fff3d1;background:linear-gradient(180deg,#2b1f0e,#433516);border-color:rgba(255,217,0,.35)}
-  .badge{background:rgba(255,255,255,.06); border:1px solid rgba(140,170,255,.22); border-radius:999px; padding:.2rem .6rem; font-size:.74rem;}
+  .chip.sel{background:linear-gradient(180deg,rgba(0,255,240,.25),rgba(0,255,240,.05)); box-shadow:0 0 16px rgba(0,255,240,.35), inset 0 0 0 1px rgba(0,255,255,.45); }
+  .badge{background:rgba(255,255,255,.06); border:1px solid rgba(140,170,255,.22); border-radius:999px; padding:.15rem .6rem; font-size:.74rem;}
   .counter{padding:.2rem .55rem;border-radius:999px;font-weight:700}
   .counter.red{background:#3a1520;border:1px solid var(--bad)}
   .counter.green{background:#153a29;border:1px solid var(--ok)}
@@ -29,6 +29,7 @@
   .btn:hover{filter:brightness(1.1)}
   .file-label{cursor:pointer; padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); display:inline-flex; gap:8px; align-items:center;}
   .file-input{display:none}
+  table th, table td { white-space: nowrap; }
 </style>
 </head>
 <body class="p-5">
@@ -51,9 +52,9 @@
         <input id="archiveUrl" class="bg-gray-900 p-2 rounded flex-1" value="https://www.lotto-bayern.de/static/gamebroker_2/de/download_files/archiv_lotto.zip">
         <button type="button" id="loadLatestBtn" class="btn btn--green">📥 Neueste laden</button>
         <button type="button" id="forceDlBtn" class="btn btn--amber">⬇️ ZIP speichern</button>
-        <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener noreferrer">🔗 Direktlink</a>
+        <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener">🔗 Direktlink</a>
       </div>
-      <p class="text-xs text-gray-300 mt-2">Mehrere CORS‑Proxys als Fallback. Falls alles blockiert wird: ZIP manuell laden und hier ablegen.</p>
+      <p class="text-xs text-gray-300 mt-2">„ZIP speichern“ lädt über mehrere Proxys und speichert lokal. „Direktlink“ öffnet die Original-URL.</p>
     </div>
 
     <div class="glass mb-3">
@@ -124,6 +125,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
+/* === Tabs === */
 function tab(name, btn){
   ['archiv','gen','ana'].forEach(n=>$('#v-'+n).classList.add('hidden'));
   $('#v-'+name).classList.remove('hidden');
@@ -131,7 +133,7 @@ function tab(name, btn){
   if(btn) btn.classList.add('active');
 }
 
-/* ======= State ======= */
+/* === State === */
 let draws=[]; // {date, main[6], super:number|null}
 let freqMain=Array(50).fill(0); // 1..49
 let freqSuper=Array(10).fill(0); // 0..9
@@ -141,7 +143,7 @@ const ARCH_KEY='lz_archive_v1';
 const LATEST_REF_KEY='lz_latest_ref_date_v1';
 let latestRefDate = localStorage.getItem(LATEST_REF_KEY) || null;
 
-/* ======= KPIs ======= */
+/* === KPIs === */
 function computeFreshnessLabel(endIso){
   if(latestRefDate){
     const end=new Date(endIso), ref=new Date(latestRefDate);
@@ -166,46 +168,67 @@ function setKPIs(){
   $('#freshHint').textContent = latestRefDate ? `Neuestes Referenz-Ende: ${latestRefDate}` : '';
 }
 
-/* ======= Download/Entpacken ======= */
-async function fetchZipArrayBuffer(url){
+/* === JSZip Ensure === */
+async function ensureJSZip(){
+  if (window.JSZip) return true;
+  const cdns = [
+    'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+    'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  ];
+  for(const src of cdns){
+    try{
+      await new Promise((resolve, reject)=>{
+        const s=document.createElement('script');
+        s.src=src; s.async=true;
+        s.onload=()=>resolve(); s.onerror=()=>reject();
+        document.head.appendChild(s);
+      });
+      if(window.JSZip) return true;
+    }catch{}
+  }
+  return false;
+}
+
+/* === Download exakt wie im Eurojackpot-Tool (Blob -> JSZip) === */
+async function fetchWithProxies(url){
   const trials=[
     url,
     'https://cors.isomorphic-git.org/'+url,
     'https://api.allorigins.win/raw?url='+encodeURIComponent(url),
     'https://thingproxy.freeboard.io/fetch/'+url,
-    'https://corsproxy.io/?'+encodeURIComponent(url),
-    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),
-    'https://yacdn.org/proxy/'+url.replace(/^https?:\/\//,'')
+    'https://corsproxy.io/?'+encodeURIComponent(url)
   ];
   let last=null;
   for(const u of trials){
     try{
-      const res=await fetch(u, {cache:'no-store'});
+      const res=await fetch(u);
       if(!res.ok) throw new Error('HTTP '+res.status);
-      // Für ZIP immer ArrayBuffer lesen – auch wenn Content-Type fehlt
-      const buf=await res.arrayBuffer();
-      return buf;
+      const ct=res.headers.get('content-type')||'';
+      if(ct.includes('zip') || u.endsWith('.zip')){
+        const ok = await ensureJSZip();
+        if(!ok) throw new Error('JSZip nicht verfügbar (CDN blockiert).');
+        const blob=await res.blob();
+        const zip=await JSZip.loadAsync(blob);
+        const entries=Object.values(zip.files);
+        let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
+        if(!entry) throw new Error('ZIP ohne TXT/CSV.');
+        const text=await entry.async('string'); 
+        return text;
+      }else{
+        return await res.text();
+      }
     }catch(e){ last=e; }
   }
   throw last||new Error('Download fehlgeschlagen');
 }
 
-async function loadZipAndParse(buf){
-  const zip=await JSZip.loadAsync(buf);
-  const entries=Object.values(zip.files);
-  // mögliche Dateinamen: archiv_lotto.csv, lotto_6aus49.txt etc.
-  let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
-  if(!entry) throw new Error('ZIP ohne TXT/CSV.');
-  const text=await entry.async('string');
-  parseArchiveText(text,'latest');
-}
-
-/* ======= Parser ======= */
+/* === Parser 6aus49 (+ optionale Superzahl) === */
 function parseArchiveText(txt, source='manual'){
   try{
     txt=txt.replace(/^\uFEFF/,'');
     const lines = txt.replace(/\r\n?/g,'\n').split('\n').map(l=>l.trim()).filter(Boolean);
-    const cleaned = lines.filter(l => (l.match(/\d+/g)||[]).length >= 6); // mind. 6 Zahlen
+    const cleaned = lines.filter(l => (l.match(/\d+/g)||[]).length >= 6);
     function iso(y,m,d){ const dt=new Date(+y, +m-1, +d); return isNaN(dt)? null : dt.toISOString().slice(0,10); }
     const regDMY=/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})$/, regYMD=/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/;
     function parseLine(line){
@@ -216,12 +239,12 @@ function parseArchiveText(txt, source='manual'){
       const nums=rest.map(Number).filter(n=>!Number.isNaN(n));
       if(!date){ const only=(line.match(/\d+/g)||[]).map(Number); if(only.length>=6){ const [a,b,c]=only.slice(0,3); const d=iso(c,b,a); if(d) date=d; } }
       const main = nums.filter(n=>n>=1&&n<=49).slice(0,6).sort((a,b)=>a-b);
-      // Superzahl 0-9 (wenn vorhanden, meist am Ende)
       let superZ = null;
-      const supCand = nums.findLast ? nums.findLast(n=>n>=0 && n<=9) : nums.reverse().find(n=>n>=0 && n<=9);
+      const findLast = (arr, pred) => { for(let i=arr.length-1;i>=0;i--){ if(pred(arr[i])) return arr[i]; } return undefined; };
+      const supCand = findLast(nums, n=>n>=0 && n<=9);
       if(supCand!==undefined) superZ = supCand;
       if(!date||main.length!==6) return null;
-      return {date, main, super: (superZ===null? null : superZ)};
+      return {date, main, super:(superZ===null? null : superZ)};
     }
     draws=[]; freqMain.fill(0); freqSuper.fill(0);
     cleaned.forEach(l=>{ const r=parseLine(l); if(r) draws.push(r); });
@@ -235,88 +258,73 @@ function parseArchiveText(txt, source='manual'){
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 }
 
-/* ======= Archiv Buttons ======= */
-function updateDirectLink(){ const u=$('#archiveUrl').value.trim(); const a=$('#directDl'); a.href=u; }
-updateDirectLink();
-$('#archiveUrl').addEventListener('input', updateDirectLink);
-
-document.getElementById('directDl').addEventListener('click', (e)=>{
-  e.preventDefault();
-  const url=$('#archiveUrl').value.trim();
-  // explizit neues Tab öffnen (manche Browser ignorieren href bei file:// Ursprüngen)
-  window.open(url, '_blank', 'noopener');
-});
-
+/* === Archiv Buttons === */
 document.getElementById('loadLatestBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim();
   $('#statusText').textContent='Lade neuestes Archiv…';
-  try{
-    const buf=await fetchZipArrayBuffer(url);
-    await loadZipAndParse(buf);
-  }catch(e){
-    $('#statusText').textContent='Download nicht möglich: '+(e?.message||e);
+  try{ const text=await fetchWithProxies(url); parseArchiveText(text, 'latest'); }
+  catch(e){
+    $('#statusText').innerHTML="Download nicht möglich. <a class='underline' target='_blank' href='"+url+"'>Manuell öffnen</a>.";
   }
 });
 document.getElementById('forceDlBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim();
-  $('#statusText').textContent='Lade ZIP…';
-  try{
-    const buf=await fetchZipArrayBuffer(url);
-    const blob=new Blob([buf],{type:'application/zip'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href);
-    $('#statusText').textContent='ZIP gespeichert.';
-  }catch(e){
-    $('#statusText').textContent='Direkt-Download nicht möglich: '+(e?.message||e);
+  const trials=['https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url),url];
+  let last=null;
+  for(const u of trials){
+    try{
+      const res=await fetch(u); if(!res.ok) throw new Error('HTTP '+res.status);
+      const blob=await res.blob();
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href);
+      return;
+    }catch(e){ last=e; }
   }
+  alert('Direkt-Download nicht möglich: '+(last?.message||'Unbekannt'));
 });
+(function(){ const u=$('#archiveUrl').value.trim(); $('#directDl').href=u; })();
 
 document.getElementById('zipInput').addEventListener('change', async (e)=>{
   const file=e.target.files?.[0]; if(!file) return; $('#fileName').textContent=file.name;
   try{
     let text='';
     if(file.name.toLowerCase().endsWith('.zip')){
-      const buf=await file.arrayBuffer();
-      await loadZipAndParse(buf);
-      return;
+      if(!(await ensureJSZip())){ alert('JSZip nicht verfügbar – bitte ZIP entpacken und TXT/CSV hochladen.'); return; }
+      const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
+      let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
+      if(!entry) throw new Error('ZIP ohne TXT/CSV.');
+      text=await entry.async('string');
     }else{ text=await file.text(); }
-    parseArchiveText(text,'manual');
+    parseArchiveText(text, 'manual');
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
 });
 document.body.addEventListener('dragover', e=>{ e.preventDefault(); });
 document.body.addEventListener('drop', async e=>{
   e.preventDefault();
   const file=e.dataTransfer?.files?.[0]; if(!file) return;
-  $('#fileName').textContent=file.name;
+  $('#fileName').textContent = file.name;
+  $('#statusText').textContent='Lade Datei…';
   try{
+    let text='';
     if(file.name.toLowerCase().endsWith('.zip')){
-      const buf=await file.arrayBuffer();
-      await loadZipAndParse(buf);
-    }else{
-      const text=await file.text();
-      parseArchiveText(text,'manual');
-    }
-  }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
+      if(!(await ensureJSZip())){ alert('JSZip nicht verfügbar – bitte ZIP entpacken und TXT/CSV hochladen.'); return; }
+      const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
+      let entry=entries.find(f=>/\.(txt|csv)$/i.test(f.name) && /(lotto|6aus49)/i.test(f.name)) || entries.find(f=>/\.(txt|csv)$/i.test(f.name));
+      if(!entry) throw new Error('ZIP ohne TXT/CSV.');
+      text=await entry.async('string');
+    }else{ text=await file.text(); }
+    parseArchiveText(text, 'manual');
+  }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 });
 
-/* ======= Gruppen-UI ======= */
-const GROUPS=[
-  {label:'1–10',from:1,to:10},
-  {label:'11–20',from:11,to:20},
-  {label:'21–30',from:21,to:30},
-  {label:'31–40',from:31,to:40},
-  {label:'41–49',from:41,to:49}
-];
-const SGROUPS=[
-  {label:'0–4',from:0,to:4},
-  {label:'5–9',from:5,to:9}
-];
+/* === Gruppen & Generator === */
+const GROUPS=[{label:'1–10',from:1,to:10},{label:'11–20',from:11,to:20},{label:'21–30',from:21,to:30},{label:'31–40',from:31,to:40},{label:'41–49',from:41,to:49}];
+const SGROUPS=[{label:'0–4',from:0,to:4},{label:'5–9',from:5,to:9}];
+
 function buildGroupUI(){
   const host=$('#groupControls'); host.innerHTML='';
   GROUPS.forEach((g,i)=>{
     const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
-    row.innerHTML = \`<div class="font-bold">\${g.label}</div>
-      <select class="bg-gray-900 p-2 rounded" data-idx="\${i}">\${[0,1,2,3,4,5,6].map(v=>\`<option value="\${v}">\${v}</option>\`).join('')}</select>
-      <div class="text-right text-sm text-gray-400">0</div>\`;
+    row.innerHTML=`<div class="font-bold">${g.label}</div><select class="bg-gray-900 p-2 rounded" data-idx="${i}">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}">${v}</option>`).join('')}</select><div class="text-right text-sm text-gray-400">0</div>`;
     host.appendChild(row);
   });
   $$('#groupControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
@@ -326,15 +334,14 @@ function buildSuperUI(){
   const host=$('#superControls'); host.innerHTML='';
   SGROUPS.forEach((g,i)=>{
     const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
-    row.innerHTML = \`<div class="font-bold">\${g.label}</div>
-      <select class="bg-gray-900 p-2 rounded super" data-idx="\${i}">\${[0,1].map(v=>\`<option value="\${v}">\${v}</option>\`).join('')}</select>
-      <div class="text-right text-sm text-gray-400">0</div>\`;
+    row.innerHTML=`<div class="font-bold">${g.label}</div><select class="bg-gray-900 p-2 rounded super" data-idx="${i}">${[0,1].map(v=>`<option value="${v}">${v}</option>`).join('')}</select><div class="text-right text-sm text-gray-400">0</div>`;
     host.appendChild(row);
   });
   $$('#superControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
 }
+
 function setCounter(el, val, total){
-  el.textContent = \`\${val}/\${total}\`;
+  el.textContent = `${val}/${total}`;
   el.classList.toggle('green', val===total);
   el.classList.toggle('red', val!==total);
 }
@@ -352,8 +359,7 @@ buildGroupUI(); buildSuperUI();
 $('#useSuper').addEventListener('change', updateGroupCounters);
 $('#superManual').addEventListener('change', e=>{ $('#superControls').classList.toggle('hidden', !e.target.checked); updateGroupCounters(); });
 
-/* ======= Helpers ======= */
-function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j]];} return a; }
 function pickFromRange(from,to,avoid,count,weightFn){
   const bag=[]; for(let n=from;n<=to;n++){ if(!avoid.includes(n)){ const w=Math.max(1, weightFn?weightFn(n):1); for(let k=0;k<w;k++) bag.push(n);} }
   shuffle(bag);
@@ -367,7 +373,6 @@ function superAuto(){
   return r.length? r[0] : Math.floor(Math.random()*10);
 }
 
-/* ======= Generator (nur Gruppenmodus) ======= */
 function generateOne(){
   if(!draws.length){
     const main = pickFromRange(1,49,[],6).sort((a,b)=>a-b);
@@ -404,13 +409,13 @@ function generateOne(){
   return {main, super:s};
 }
 
-/* ======= Typing & Cards ======= */
+/* === Typing + Analyse === */
 async function typeLine(el, text){ for(const ch of text){ el.append(ch); await sleep(10);} }
 async function printTip(outEl, index, tip){
   await typeLine(outEl, "#"+index+": ");
   for(const n of tip.main){ await typeLine(outEl, n+" "); }
   if(tip.super!=null){ await typeLine(outEl, "| SZ: "+tip.super); }
-  outEl.append("\\n"); outEl.scrollTop = outEl.scrollHeight;
+  outEl.append("\n"); outEl.scrollTop = outEl.scrollHeight;
 }
 
 function analyseVariant(tip){
@@ -428,32 +433,32 @@ function analyseVariant(tip){
 function tipCard(idx, tip){
   const a = analyseVariant(tip);
   const card=document.createElement('div'); card.className='glass mb-3';
-  card.innerHTML = \`
+  card.innerHTML = `
     <div class="flex items-center justify-between">
       <div>
-        \${tip.main.map(n=>\`<span class="chip">\${n}</span>\`).join('')}
-        \${tip.super!=null ? '<span class="badge ml-2">SZ</span><span class="chip super">'+tip.super+'</span>' : ''}
+        ${tip.main.map(n=>`<span class="chip">${n}</span>`).join('')}
+        ${tip.super!=null ? '<span class="badge ml-2">SZ</span><span class="chip super">'+tip.super+'</span>' : ''}
       </div>
-      <span class="badge">#\${idx}</span>
+      <span class="badge">#${idx}</span>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
-      <div class="badge">6 Richtige gesamt: <b>\${a.hit6}</b></div>
-      <div class="badge">5 Richtige gesamt: <b>\${a.hit5}</b></div>
-      <div class="badge">4 Richtige gesamt: <b>\${a.hit4}</b></div>
-      <div class="badge">3 Richtige gesamt: <b>\${a.hit3}</b></div>
-      <div class="badge">Exakt 6: <b>\${a.exact}</b></div>
-      \${tip.super!=null ? '<div class="badge">Exakt 6 + SZ: <b>'+a.exactWithSuper+'</b></div>' : ''}
+      <div class="badge">6 Richtige gesamt: <b>${a.hit6}</b></div>
+      <div class="badge">5 Richtige gesamt: <b>${a.hit5}</b></div>
+      <div class="badge">4 Richtige gesamt: <b>${a.hit4}</b></div>
+      <div class="badge">3 Richtige gesamt: <b>${a.hit3}</b></div>
+      <div class="badge">Exakt 6: <b>${a.exact}</b></div>
+      ${tip.super!=null ? '<div class="badge">Exakt 6 + SZ: <b>'+a.exactWithSuper+'</b></div>' : ''}
     </div>
     <div class="mt-2 flex gap-2 flex-wrap">
       <button class="btn btn--gray copy-btn">📋 Kopieren</button>
       <button class="btn btn--gray del-btn">🗑️ Entfernen</button>
-    </div>\`;
-  card.querySelector('.copy-btn').onclick = ()=> navigator.clipboard.writeText(\`\${tip.main.join('-')}\${tip.super!=null? ' | SZ:'+tip.super:''}\`);
+    </div>`;
+  card.querySelector('.copy-btn').onclick = ()=> navigator.clipboard.writeText(`${tip.main.join('-')}${tip.super!=null? ' | SZ:'+tip.super:''}`);
   card.querySelector('.del-btn').onclick = ()=>{ card.remove(); generated = generated.filter(g=> g!==tip); };
   return card;
 }
 
-/* ====== Buttons ====== */
+/* === Buttons === */
 $('#generateBtn').addEventListener('click', async ()=>{
   if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; }
   const total = +$('#kombis').value || 1;
@@ -485,29 +490,32 @@ $('#analyseAllBtn').addEventListener('click', ()=>{
   generated.forEach((t,i)=>{
     const a=analyseVariant(t);
     const label = t.main.join(' ') + (t.super!=null? ' | SZ:'+t.super:'');
-    html += \`<tr class="border-t border-white/10">
-      <td class="px-2 py-1">\${i+1}</td>
-      <td class="px-2 py-1">\${label}</td>
-      <td class="px-2 py-1 text-center">\${a.hit6}</td>
-      <td class="px-2 py-1 text-center">\${a.hit5}</td>
-      <td class="px-2 py-1 text-center">\${a.hit4}</td>
-      <td class="px-2 py-1 text-center">\${a.hit3}</td>
-      <td class="px-2 py-1 text-center">\${a.exact}</td>
-      <td class="px-2 py-1 text-center">\${t.super!=null? a.exactWithSuper : '–'}</td>
-    </tr>\`;
+    html += `<tr class="border-t border-white/10">
+      <td class="px-2 py-1">${i+1}</td>
+      <td class="px-2 py-1">${label}</td>
+      <td class="px-2 py-1 text-center">${a.hit6}</td>
+      <td class="px-2 py-1 text-center">${a.hit5}</td>
+      <td class="px-2 py-1 text-center">${a.hit4}</td>
+      <td class="px-2 py-1 text-center">${a.hit3}</td>
+      <td class="px-2 py-1 text-center">${a.exact}</td>
+      <td class="px-2 py-1 text-center">${t.super!=null? a.exactWithSuper : '–'}</td>
+    </tr>`;
   });
   html += '</tbody></table></div></div>';
   $('#analysisBox').innerHTML = html;
   tab('ana', $('#btn-ana'));
 });
 
-/* ====== Restore ====== */
-(()=>{
+/* === Init === */
+function init(){
+  const u=$('#archiveUrl').value.trim(); $('#directDl').href=u;
+  buildGroupUI(); buildSuperUI();
   const saved=localStorage.getItem(ARCH_KEY);
   if(saved){ try{ parseArchiveText(saved,'manual'); $('#statusText').textContent='Archiv aus Speicher geladen ✔'; }catch{} }
   latestRefDate = localStorage.getItem(LATEST_REF_KEY) || latestRefDate;
   setKPIs();
-})();
+}
+init();
 </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lotto 6aus49 Tool by EnoWeb • v1.1</title>
+<title>Lotto 6aus49 Tool by EnoWeb • v1.3 (Full Archive)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -46,6 +46,7 @@
     <button type="button" onclick="tab('ana', this)" class="nav-btn" id="btn-ana"><div>📊</div><span>Analyse</span></button>
   </div>
 
+  <!-- ARCHIV -->
   <div id="v-archiv" class="glass">
     <h2 class="text-xl font-bold mb-2">📂 Archiv</h2>
     <p id="statusText" class="text-sm mb-2">Noch kein Archiv geladen.</p>
@@ -80,6 +81,7 @@
     <p id="freshHint" class="text-xs opacity-80 mt-2"></p>
   </div>
 
+  <!-- GENERIEREN -->
   <div id="v-gen" class="glass hidden">
     <h2 class="text-xl font-bold mb-2">⚡ Generieren</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -116,7 +118,7 @@
     <div class="mt-4">
       <div class="flex items-center gap-2 mb-1">
         <h3 class="font-bold">🗺️ Map</h3>
-        <span class="text-xs opacity-80">Farbintensität = Häufigkeit (gesamtes Archiv).</span>
+        <span class="text-xs opacity-80">Farbintensität = Häufigkeit (komplettes Archiv).</span>
       </div>
       <div id="numMap" class="map"></div>
     </div>
@@ -125,6 +127,7 @@
     <div id="cards" class="mt-3"></div>
   </div>
 
+  <!-- ANALYSE -->
   <div id="v-ana" class="glass hidden">
     <h2 class="text-xl font-bold mb-2">📊 Analyse</h2>
     <div id="analysisBox" class="mt-1 text-sm"></div>
@@ -142,7 +145,11 @@ function tab(name, btn){
   if(btn) btn.classList.add('active');
 }
 
-let draws=[]; let freqMain=Array(50).fill(0); let freqSuper=Array(10).fill(0); let generated=[];
+let draws=[]; // full
+let freqMain=Array(50).fill(0);
+let freqSuper=Array(10).fill(0);
+let generated=[];
+
 const ARCH_KEY='lz_archive_v1'; const LATEST_REF_KEY='lz_latest_ref_date_v1'; let latestRefDate = localStorage.getItem(LATEST_REF_KEY) || null;
 
 function computeFreshnessLabel(endIso){
@@ -159,6 +166,7 @@ function setKPIs(){
   $('#kpiFresh').textContent=computeFreshnessLabel(draws.at(-1).date); $('#freshHint').textContent = latestRefDate ? `Neuestes Referenz-Ende: ${latestRefDate}` : '';
 }
 
+/* JSZip ensure */
 async function ensureJSZip(){
   if (window.JSZip) return true;
   const cdns = ['https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js','https://unpkg.com/jszip@3.10.1/dist/jszip.min.js','https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
@@ -167,6 +175,7 @@ async function ensureJSZip(){
   } return false;
 }
 
+/* Download via proxies */
 async function fetchWithProxies(url){
   const trials=[url,'https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url)];
   let last=null;
@@ -184,6 +193,7 @@ async function fetchWithProxies(url){
   } throw last||new Error('Download fehlgeschlagen');
 }
 
+/* Parser */
 function parseArchiveText(txt, source='manual'){
   try{
     txt=txt.replace(/^\uFEFF/,'');
@@ -201,7 +211,8 @@ function parseArchiveText(txt, source='manual'){
       const main = nums.filter(n=>n>=1&&n<=49).slice(0,6).sort((a,b)=>a-b);
       let superZ = null; const findLast=(arr,p)=>{ for(let i=arr.length-1;i>=0;i--){ if(p(arr[i])) return arr[i]; } };
       const supCand = findLast(nums, n=>n>=0 && n<=9); if(supCand!==undefined) superZ = supCand;
-      if(!date||main.length!==6) return null; return {date, main, super:(superZ===null? null : superZ)};
+      if(!date||main.length!==6) return null;
+      return {date, main, super:(superZ===null? null : superZ)};
     }
     draws=[]; freqMain.fill(0); freqSuper.fill(0);
     cleaned.forEach(l=>{ const r=parseLine(l); if(r) draws.push(r); });
@@ -213,6 +224,7 @@ function parseArchiveText(txt, source='manual'){
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 }
 
+/* Map */
 function buildMap(highlight=[]){
   const host = $('#numMap'); host.innerHTML=''; const max = Math.max(...freqMain.slice(1)) || 1;
   for(let n=1;n<=49;n++){
@@ -223,6 +235,7 @@ function buildMap(highlight=[]){
   }
 }
 
+/* Archiv Buttons */
 document.getElementById('loadLatestBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim(); $('#statusText').textContent='Lade neuestes Archiv…';
   try{ const text=await fetchWithProxies(url); parseArchiveText(text, 'latest'); }
@@ -239,6 +252,7 @@ document.getElementById('forceDlBtn').addEventListener('click', async ()=>{
 });
 (function(){ const u=$('#archiveUrl').value.trim(); $('#directDl').href=u; })();
 
+/* File/Drop */
 document.getElementById('zipInput').addEventListener('change', async (e)=>{
   const file=e.target.files?.[0]; if(!file) return; $('#fileName').textContent=file.name;
   try{
@@ -264,6 +278,7 @@ document.body.addEventListener('drop', async e=>{
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 });
 
+/* Gruppen & Generator */
 const GROUPS=[{label:'1–10',from:1,to:10},{label:'11–20',from:11,to:20},{label:'21–30',from:21,to:30},{label:'31–40',from:31,to:40},{label:'41–49',from:41,to:49}];
 const SGROUPS=[{label:'0–4',from:0,to:4},{label:'5–9',from:5,to:9}];
 
@@ -316,13 +331,8 @@ function superAuto(){
   const r = pickFromRange(0,9,[],1,w);
   return r.length? r[0] : Math.floor(Math.random()*10);
 }
-
 function generateOne(){
-  if(!draws.length){
-    const main = pickFromRange(1,49,[],6).sort((a,b)=>a-b);
-    const s = $('#useSuper').checked ? superAuto() : null;
-    return {main, super:s};
-  }
+  if(!draws.length){ const main = pickFromRange(1,49,[],6).sort((a,b)=>a-b); const s = $('#useSuper').checked ? superAuto() : null; return {main, super:s}; }
   const want = $$('#groupControls select').map(s=>+s.value||0);
   const sumWant = want.reduce((a,b)=>a+b,0);
   const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
@@ -398,6 +408,7 @@ function tipCard(idx, tip){
   return card;
 }
 
+/* Generate / Analyse buttons */
 $('#generateBtn').addEventListener('click', async ()=>{
   if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; }
   const total = +$('#kombis').value || 1;
@@ -419,7 +430,7 @@ $('#clearGeneratedBtn').addEventListener('click', ()=>{ generated=[]; $('#cards'
 
 $('#analyseAllBtn').addEventListener('click', ()=>{
   if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; }
-  let html = '<div class="glass mt-2"><div class="font-bold mb-2">Auswertung der generierten Kombinationen</div>';
+  let html = '<div class="glass mt-2"><div class="font-bold mb-2">Auswertung der generierten Kombinationen (komplettes Archiv)</div>';
   html += '<div class="overflow-auto"><table class="text-sm min-w-full"><thead><tr>';
   html += '<th class="px-2 py-1 text-left">#</th><th class="px-2 py-1 text-left">Kombi</th><th class="px-2 py-1">6R</th><th class="px-2 py-1">5R</th><th class="px-2 py-1">4R</th><th class="px-2 py-1">3R</th><th class="px-2 py-1">Exakt6</th><th class="px-2 py-1">Exakt6+SZ</th>';
   html += '</tr></thead><tbody>';
@@ -440,6 +451,7 @@ $('#analyseAllBtn').addEventListener('click', ()=>{
   html += '</tbody></table></div></div>'; $('#analysisBox').innerHTML = html; tab('ana', $('#btn-ana'));
 });
 
+/* Auto-load on open */
 async function tryAutoLoad(){
   const url=$('#archiveUrl').value.trim();
   try{ const text=await fetchWithProxies(url); parseArchiveText(text,'latest'); }
@@ -447,7 +459,8 @@ async function tryAutoLoad(){
 }
 function init(){
   const u=$('#archiveUrl').value.trim(); $('#directDl').href=u;
-  buildGroupUI(); buildSuperUI(); const saved=localStorage.getItem(ARCH_KEY);
+  buildGroupUI(); buildSuperUI();
+  const saved=localStorage.getItem(ARCH_KEY);
   if(saved){ try{ parseArchiveText(saved,'manual'); $('#statusText').textContent='Archiv aus Speicher geladen ✔'; }catch{} }
   latestRefDate = localStorage.getItem(LATEST_REF_KEY) || latestRefDate; setKPIs(); buildMap([]);
   setTimeout(tryAutoLoad, 400);

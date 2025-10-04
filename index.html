@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lotto 6aus49 Tool by EnoWeb • v1.4 (Full archive, multi-file ZIP)</title>
+<title>Lotto 6aus49 Tool by EnoWeb • v1.5 (offizielle Zählung)</title>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
@@ -12,7 +12,7 @@
   .title{background:linear-gradient(90deg,var(--cy),var(--mag)); -webkit-background-clip:text; color:transparent; font-weight:900}
   .glass{background:rgba(15,18,40,.78); backdrop-filter: blur(14px); border:1px solid rgba(0,255,255,.18); border-radius:14px; padding:14px; box-shadow: 0 12px 40px rgba(0,0,0,.45);}
   .nav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px; min-width:90px;height:78px;padding:8px 10px;border-radius:16px;background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); border:1px solid rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 8px 22px rgba(0,0,0,.4);}
-  .nav-btn.active{outline:2px solid rgba(255,255,255,.15); box-shadow:0 0 20px rgba(0,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.1);}
+  .nav-btn.active{outline:2px solid rgba(255,255,255,.15); box-shadow:0 0 20px rgba(0,255,255,.35), inset 0 0 0 1px rgba(0,255,255,.1);}
   .chip{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:10px;margin:4px;font-weight:800;font-size:.9rem;color:#bdfcff;background:linear-gradient(180deg,#0e1530,#15204a);border:1px solid rgba(0,255,255,.25);}
   .chip.super{color:#fff3d1;background:linear-gradient(180deg,#2b1f0e,#433516);border-color:rgba(255,217,0,.35)}
   .badge{background:rgba(255,255,255,.06); border:1px solid rgba(140,170,255,.22); border-radius:999px; padding:.15rem .6rem; font-size:.74rem;}
@@ -55,7 +55,7 @@
         <button type="button" id="forceDlBtn" class="btn btn--amber">⬇️ ZIP speichern</button>
         <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener">🔗 Direktlink</a>
       </div>
-      <p class="text-xs text-gray-300 mt-2">Beim Öffnen: ZIP laden und <b>alle</b> TXT/CSV zusammenführen (losa/lomi/lotto).</p>
+      <p class="text-xs text-gray-300 mt-2">ZIP wird geladen und <b>alle</b> TXT/CSV zusammengeführt. <b>Mittwochs-Ziehungen vor 04.06.1986 werden automatisch ausgeschlossen</b> (entspricht der offiziellen Statistik).</p>
     </div>
 
     <div class="glass mb-3">
@@ -112,7 +112,7 @@
     <div class="mt-4">
       <div class="flex items-center gap-2 mb-1">
         <h3 class="font-bold">🗺️ Map</h3>
-        <span class="text-xs opacity-80">Farbintensität = Häufigkeit (komplettes Archiv).</span>
+        <span class="text-xs opacity-80">Farbintensität = Häufigkeit (offizielle Zählung).</span>
       </div>
       <div id="numMap" class="map"></div>
     </div>
@@ -139,6 +139,7 @@ function tab(name, btn){
 
 let draws=[]; let freqMain=Array(50).fill(0); let freqSuper=Array(10).fill(0); let generated=[];
 const ARCH_KEY='lz_archive_v1'; const LATEST_REF_KEY='lz_latest_ref_date_v1'; let latestRefDate = localStorage.getItem(LATEST_REF_KEY) || null;
+const WED_CUTOFF = '1986-06-04'; // offizielle Grenze für Mittwochs-Zählung
 
 function computeFreshnessLabel(endIso){
   if(latestRefDate){
@@ -154,8 +155,10 @@ function setKPIs(){
   $('#kpiFresh').textContent=computeFreshnessLabel(draws.at(-1).date);
 }
 
+/* JSZip ensure */
 async function ensureJSZip(){ if(window.JSZip) return true; return false; }
 
+/* Download via proxies */
 async function fetchWithProxies(url){
   const trials=[url,'https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url)];
   let last=null;
@@ -166,38 +169,76 @@ async function fetchWithProxies(url){
       if(ct.includes('zip') || u.endsWith('.zip')){
         const ok = await ensureJSZip(); if(!ok) throw new Error('JSZip nicht verfügbar.');
         const blob=await res.blob(); const zip=await JSZip.loadAsync(blob); const entries=Object.values(zip.files);
-        const wanted = entries.filter(f=>/\.(txt|csv)$/i.test(f.name));
+        const wanted = entries.filter(f=>/\\.(txt|csv)$/i.test(f.name));
         if(!wanted.length) throw new Error('ZIP ohne TXT/CSV.');
-        let combined=''; for(const f of wanted){ combined += "\n" + await f.async('string'); }
+        let combined=''; for(const f of wanted){ combined += "\\n" + await f.async('string'); }
         return combined;
       } else { return await res.text(); }
     }catch(e){ last=e; }
   } throw last||new Error('Download fehlgeschlagen');
 }
 
+function includeDraw(dateIso, weekday){
+  // weekday: 0 So ... 6 Sa (wir verwenden UTC)
+  if(weekday===3 && dateIso < WED_CUTOFF) return false; // Mittwoch vor 04.06.1986 ausschließen
+  return true;
+}
+
 function parseArchiveText(txt, source='manual'){
   try{
-    txt=txt.replace(/^﻿/,'');
-    const lines = txt.replace(/\r\n?/g,'\n').split('\n').map(l=>l.trim()).filter(Boolean);
-    const cleaned = lines.filter(l => (l.match(/\d+/g)||[]).length >= 6);
-    function iso(y,m,d){ const dt=new Date(+y, +m-1, +d); return isNaN(dt)? null : dt.toISOString().slice(0,10); }
-    const regDMY=/(^|\s)(\d{1,2})[.\-\/]?(\d{1,2})[.\-\/]?(\d{2,4})(\s|$)/;
-    function parseLine(line){
-      const t=line.split(/;|,|\t|\s+/).filter(Boolean); let date=null,rest=[];
-      if(/tag|monat|jahr/i.test(line) && t.length < 5) return null;
-      if(t.length>=3 && /^\d+$/.test(t[0]) && /^\d+$/.test(t[1]) && /^\d+$/.test(t[2])){ date=iso(t[2],t[1],t[0]); rest=t.slice(3); }
-      else{ const m=line.match(regDMY); if(m){ date=iso(m[4],m[3],m[2]); rest=line.replace(regDMY,' ').trim().split(/;|,|\t|\s+/).filter(Boolean); } else { rest=t.slice(0);} }
-      const nums=rest.map(Number).filter(n=>!Number.isNaN(n));
-      const main = nums.filter(n=>n>=1&&n<=49).slice(0,6).sort((a,b)=>a-b);
-      let superZ = null; for(let i=nums.length-1;i>=0;i--){ if(nums[i]>=0&&nums[i]<=9){ superZ=nums[i]; break; } }
-      if(!date||main.length!==6) return null;
-      return {date, main, super:(superZ===null? null : superZ)};
+    txt=txt.replace(/^\uFEFF/,'');
+    const lines = txt.replace(/\\r\\n?/g,'\\n').split('\\n').map(l=>l.trim()).filter(Boolean);
+    const cleaned = lines.filter(l => (l.match(/\\d+/g)||[]).length >= 6);
+    function iso(y,m,d){ const dt=new Date(Date.UTC(+y, +m-1, +d)); return isNaN(dt)? null : dt.toISOString().slice(0,10); }
+
+    const regDMY=/(^|\\s)(\\d{1,2})[.\\-\\/]?(\\d{1,2})[.\\-\\/]?(\\d{2,4})(\\s|$)/;
+    function extractSets(restNums){
+      // Gibt 1..n Ziehungen zurück (A/B) pro Zeile
+      const out=[];
+      let idx=0;
+      while(idx < restNums.length){
+        const mains=[];
+        let j=idx;
+        while(j<restNums.length && mains.length<6){
+          const n=restNums[j];
+          if(1<=n && n<=49){ mains.push(n); }
+          j++;
+        }
+        if(mains.length===6){
+          out.push({main:mains.sort((a,b)=>a-b)});
+          // nach 6 Zahlen optional eine Zusatzzahl 1..49 überspringen
+          idx=j;
+          if(idx<restNums.length && 1<=restNums[idx] && restNums[idx]<=49){ idx++; }
+          // danach evtl. Superzahlen 0..9 ignorieren
+          while(idx<restNums.length && 0<=restNums[idx] && restNums[idx]<=9){ idx++; }
+          continue;
+        }
+        break;
+      }
+      return out;
     }
+
+    function parseLine(line){
+      const t=line.split(/;|,|\\t|\\s+/).filter(Boolean);
+      // Headerzeilen überspringen
+      if(/tag|monat|jahr/i.test(line) && t.length < 5) return [];
+      let date=null, rest=[];
+      const m=line.match(regDMY);
+      if(m){ date=iso(m[4],m[3],m[2]); rest = line.replace(regDMY,' ').trim().split(/;|,|\\t|\\s+/).filter(Boolean).map(Number).filter(n=>!Number.isNaN(n)); }
+      else if(t.length>=3 && /^\\d+$/.test(t[0]) && /^\\d+$/.test(t[1]) && /^\\d+$/.test(t[2])){ date=iso(t[2],t[1],t[0]); rest=t.slice(3).map(Number).filter(n=>!Number.isNaN(n)); }
+      else { return []; }
+      const sets = extractSets(rest);
+      const weekday = new Date(date+'T00:00:00Z').getUTCDay();
+      return sets.filter(()=> includeDraw(date, weekday)).map(s=>({date, main:s.main}));
+    }
+
     draws=[]; freqMain.fill(0); freqSuper.fill(0);
-    cleaned.forEach(l=>{ const r=parseLine(l); if(r) draws.push(r); });
+    for(const line of cleaned){
+      const rows = parseLine(line);
+      for(const r of rows){ draws.push(r); r.main.forEach(n=>freqMain[n]++); }
+    }
     if(!draws.length) throw new Error('Keine gültigen Ziehungen erkannt.');
     draws.sort((a,b)=>a.date.localeCompare(b.date));
-    draws.forEach(d=>{ d.main.forEach(n=>freqMain[n]++); if(d.super!=null) freqSuper[d.super]++; });
     localStorage.setItem(ARCH_KEY, txt); if(source==='latest'){ localStorage.setItem(LATEST_REF_KEY, draws.at(-1).date); }
     $('#statusText').textContent='Archiv geladen ✔'; setKPIs(); buildMap();
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
@@ -231,8 +272,8 @@ document.getElementById('zipInput').addEventListener('change', async (e)=>{
     for(const file of files){
       if(file.name.toLowerCase().endsWith('.zip')){
         const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined += "\n" + await f.async('string'); } }
-      }else{ combined += "\n" + await file.text(); }
+        for(const f of entries){ if(/\\.(txt|csv)$/i.test(f.name)){ combined += "\\n" + await f.async('string'); } }
+      }else{ combined += "\\n" + await file.text(); }
     }
     parseArchiveText(combined, 'manual');
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
@@ -246,16 +287,16 @@ document.body.addEventListener('drop', async e=>{
     for(const file of files){
       if(file.name.toLowerCase().endsWith('.zip')){
         const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined += "\n" + await f.async('string'); } }
-      }else{ combined += "\n" + await file.text(); }
+        for(const f of entries){ if(/\\.(txt|csv)$/i.test(f.name)){ combined += "\\n" + await f.async('string'); } }
+      }else{ combined += "\\n" + await file.text(); }
     }
     parseArchiveText(combined, 'manual');
   }catch(e){ $('#statusText').textContent='Fehler: '+e.message; }
 });
 
+/* Gruppen / Generator (unverändert) */
 const GROUPS=[{label:'1–10',from:1,to:10},{label:'11–20',from:11,to:20},{label:'21–30',from:21,to:30},{label:'31–40',from:31,to:40},{label:'41–49',from:41,to:49}];
 const SGROUPS=[{label:'0–4',from:0,to:4},{label:'5–9',from:5,to:9}];
-
 function buildGroupUI(){
   const host=$('#groupControls'); host.innerHTML='';
   GROUPS.forEach((g,i)=>{
@@ -297,136 +338,30 @@ function pickFromRange(from,to,avoid,count,weightFn){
   for(let n=from; res.length<count && n<=to; n++){ if(!res.includes(n) && !avoid.includes(n)) res.push(n); }
   return res;
 }
-function superAuto(){
-  const fs=[...freqSuper]; const m=Math.max(...fs)||1;
-  const w = s=> 1 + Math.round(3*(fs[s]/m));
-  const r = pickFromRange(0,9,[],1,w);
-  return r.length? r[0] : Math.floor(Math.random()*10);
-}
+function superAuto(){ const m=Math.max(...freqSuper)||1; const w=s=>1+Math.round(3*((freqSuper[s]||0)/m)); const r=pickFromRange(0,9,[],1,w); return r.length? r[0] : Math.floor(Math.random()*10); }
 function generateOne(){
-  if(!draws.length){ const main = pickFromRange(1,49,[],6).sort((a,b)=>a-b); const s = $('#useSuper').checked ? superAuto() : null; return {main, super:s}; }
-  const want = $$('#groupControls select').map(s=>+s.value||0);
-  const sumWant = want.reduce((a,b)=>a+b,0);
+  if(!draws.length){ const main=pickFromRange(1,49,[],6).sort((a,b)=>a-b); const s=$('#useSuper').checked? superAuto():null; return {main, super:s}; }
+  const want=$$('#groupControls select').map(s=>+s.value||0); const sumWant=want.reduce((a,b)=>a+b,0);
   const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
   if(sumWant!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; throw new Error('Gruppen nicht vollständig.'); }
-  const r=draws.slice(-100);
-  const fm=Array(50).fill(1); r.forEach(d=>d.main.forEach(n=>fm[n]++));
-  const maxM=Math.max(...fm.slice(1));
-  const w=n=>Math.ceil(3*fm[n]/maxM);
-  let main=[]; GROUPS.forEach((g,i)=>{ const need=want[i]; if(need>0){ main.push(...pickFromRange(g.from,g.to,main,need,w)); } });
-  main = Array.from(new Set(main)).sort((a,b)=>a-b).slice(0,6);
-  let s=null;
-  if($('#useSuper').checked){
-    if($('#superManual').checked){
-      const eWant = $$('#superControls select').map(s=>+s.value||0);
-      const eSum = eWant.reduce((a,b)=>a+b,0);
-      if(eSum!==1){ throw new Error('Superzahl-Summe muss 1 sein.'); }
-      let bag=[]; SGROUPS.forEach((g,i)=>{ if(eWant[i]>0){ for(let n=g.from; n<=g.to; n++){ bag.push(n);} } });
-      s = bag.length? bag[Math.floor(Math.random()*bag.length)] : superAuto();
-    }else{ s = superAuto(); }
-  }
+  const r=draws.slice(-100); const fm=Array(50).fill(1); r.forEach(d=>d.main.forEach(n=>fm[n]++)); const maxM=Math.max(...fm.slice(1)); const w=n=>Math.ceil(3*fm[n]/maxM);
+  let main=[]; [{from:1,to:10},{from:11,to:20},{from:21,to:30},{from:31,to:40},{from:41,to:49}].forEach((g,i)=>{ const need=want[i]; if(need>0){ main.push(...pickFromRange(g.from,g.to,main,need,w)); } });
+  main=Array.from(new Set(main)).sort((a,b)=>a-b).slice(0,6);
+  let s=null; if($('#useSuper').checked){ if($('#superManual').checked){ const wantS=$$('#superControls select').map(s=>+s.value||0); const sum=wantS.reduce((a,b)=>a+b,0); if(sum!==1){ throw new Error('Superzahl-Summe muss 1 sein.'); } const bag=[]; [{from:0,to:4},{from:5,to:9}].forEach((g,i)=>{ if(wantS[i]>0){ for(let n=g.from;n<=g.to;n++) bag.push(n);} }); s=bag.length? bag[Math.floor(Math.random()*bag.length)] : superAuto(); } else { s=superAuto(); } }
   return {main, super:s};
 }
 
-async function typeLine(el, text){ for(const ch of text){ el.append(ch); await new Promise(r=>setTimeout(r,10));} }
-async function printTip(outEl, index, tip){
-  await typeLine(outEl, "#"+index+": ");
-  for(const n of tip.main){ await typeLine(outEl, n+" "); }
-  if(tip.super!=null){ await typeLine(outEl, "| SZ: "+tip.super); }
-  outEl.append("\n"); outEl.scrollTop = outEl.scrollHeight;
-  buildMap(tip.main);
-}
-function analyseVariant(tip){
-  let exact=0, hit6=0, hit5=0, hit4=0, hit3=0, exactWithSuper=0;
-  for(const d of draws){
-    const mMatch = tip.main.filter(x=>d.main.includes(x)).length;
-    if(mMatch===6){ hit6++; exact++; if(tip.super!=null && d.super!=null && tip.super===d.super) exactWithSuper++; }
-    if(mMatch===5) hit5++;
-    if(mMatch===4) hit4++;
-    if(mMatch===3) hit3++;
-  }
-  return {exact, exactWithSuper, hit6, hit5, hit4, hit3};
-}
-function tipCard(idx, tip){
-  const a = analyseVariant(tip);
-  const card=document.createElement('div'); card.className='glass mb-3';
-  card.innerHTML = `
-    <div class="flex items-center justify-between">
-      <div>
-        ${tip.main.map(n=>`<span class="chip">${n}</span>`).join('')}
-        ${tip.super!=null ? '<span class="badge ml-2">SZ</span><span class="chip super">'+tip.super+'</span>' : ''}
-      </div>
-      <span class="badge">#${idx}</span>
-    </div>
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
-      <div class="badge">6 Richtige gesamt: <b>${a.hit6}</b></div>
-      <div class="badge">5 Richtige gesamt: <b>${a.hit5}</b></div>
-      <div class="badge">4 Richtige gesamt: <b>${a.hit4}</b></div>
-      <div class="badge">3 Richtige gesamt: <b>${a.hit3}</b></div>
-      <div class="badge">Exakt 6: <b>${a.exact}</b></div>
-      ${tip.super!=null ? '<div class="badge">Exakt 6 + SZ: <b>'+a.exactWithSuper+'</b></div>' : ''}
-    </div>
-    <div class="mt-2 flex gap-2 flex-wrap">
-      <button class="btn btn--gray copy-btn">📋 Kopieren</button>
-      <button class="btn btn--gray del-btn">🗑️ Entfernen</button>
-    </div>`;
-  card.querySelector('.copy-btn').onclick = ()=> navigator.clipboard.writeText(`${tip.main.join('-')}${tip.super!=null? ' | SZ:'+tip.super:''}`);
-  card.querySelector('.del-btn').onclick = ()=>{ card.remove(); generated = generated.filter(g=> g!==tip); };
-  return card;
-}
-$('#generateBtn').addEventListener('click', async ()=>{
-  if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; }
-  const total = +$('#kombis').value || 1;
-  const out = $('#liveOutput'); out.textContent='';
-  $('#cards').innerHTML='';
-  generated=[]; const seen=new Set();
-  for(let i=1;i<=total;i++){
-    try{
-      let tip = generateOne();
-      let key = tip.main.join('-')+'|'+(tip.super ?? 'x');
-      let guard=0; while(seen.has(key) && guard<10){ tip = generateOne(); key=tip.main.join('-')+'|'+(tip.super ?? 'x'); guard++; }
-      seen.add(key); generated.push(tip);
-      await printTip(out, i, tip);
-      $('#cards').appendChild(tipCard(i, tip));
-    }catch(e){ const err=$('#groupError'); err.classList.remove('hidden'); err.textContent=e.message; break; }
-  }
-});
-$('#clearGeneratedBtn').addEventListener('click', ()=>{ generated=[]; $('#cards').innerHTML=''; $('#liveOutput').textContent=''; buildMap([]); });
-$('#analyseAllBtn').addEventListener('click', ()=>{
-  if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; }
-  let html = '<div class="glass mt-2"><div class="font-bold mb-2">Auswertung der generierten Kombinationen (komplettes Archiv)</div>';
-  html += '<div class="overflow-auto"><table class="text-sm min-w-full"><thead><tr>';
-  html += '<th class="px-2 py-1 text-left">#</th><th class="px-2 py-1 text-left">Kombi</th><th class="px-2 py-1">6R</th><th class="px-2 py-1">5R</th><th class="px-2 py-1">4R</th><th class="px-2 py-1">3R</th><th class="px-2 py-1">Exakt6</th><th class="px-2 py-1">Exakt6+SZ</th>';
-  html += '</tr></thead><tbody>';
-  generated.forEach((t,i)=>{
-    const a=analyseVariant(t);
-    const label = t.main.join(' ') + (t.super!=null? ' | SZ:'+t.super:'');
-    html += `<tr class="border-t border-white/10">
-      <td class="px-2 py-1">${i+1}</td>
-      <td class="px-2 py-1">${label}</td>
-      <td class="px-2 py-1 text-center">${a.hit6}</td>
-      <td class="px-2 py-1 text-center">${a.hit5}</td>
-      <td class="px-2 py-1 text-center">${a.hit4}</td>
-      <td class="px-2 py-1 text-center">${a.hit3}</td>
-      <td class="px-2 py-1 text-center">${a.exact}</td>
-      <td class="px-2 py-1 text-center">${t.super!=null? a.exactWithSuper : '–'}</td>
-    </tr>`;
-  });
-  html += '</tbody></table></div></div>'; $('#analysisBox').innerHTML = html; tab('ana', $('#btn-ana'));
-});
+async function typeLine(el, t){ for(const ch of t){ el.append(ch); await new Promise(r=>setTimeout(r,10));} }
+async function printTip(out, idx, tip){ await typeLine(out, "#"+idx+": "); for(const n of tip.main){ await typeLine(out, n+" "); } if(tip.super!=null){ await typeLine(out, "| SZ: "+tip.super); } out.append("\\n"); out.scrollTop=out.scrollHeight; buildMap(tip.main); }
+function analyseVariant(t){ let exact=0, hit6=0, hit5=0, hit4=0, hit3=0, exactWithSuper=0; for(const d of draws){ const m= t.main.filter(x=>d.main.includes(x)).length; if(m===6){ hit6++; exact++; } if(m===5) hit5++; if(m===4) hit4++; if(m===3) hit3++; } return {exact, hit6, hit5, hit4, hit3, exactWithSuper}; }
+function tipCard(i,t){ const a=analyseVariant(t); const c=document.createElement('div'); c.className='glass mb-3'; c.innerHTML=`<div class="flex items-center justify-between"><div>${t.main.map(n=>`<span class="chip">${n}</span>`).join('')}${t.super!=null?'<span class="badge ml-2">SZ</span><span class="chip super">'+t.super+'</span>':''}</div><span class="badge">#${i}</span></div><div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm"><div class="badge">6 Richtige gesamt: <b>${a.hit6}</b></div><div class="badge">5 Richtige gesamt: <b>${a.hit5}</b></div><div class="badge">4 Richtige gesamt: <b>${a.hit4}</b></div><div class="badge">3 Richtige gesamt: <b>${a.hit3}</b></div><div class="badge">Exakt 6: <b>${a.exact}</b></div></div><div class="mt-2 flex gap-2 flex-wrap"><button class="btn btn--gray copy-btn">📋 Kopieren</button><button class="btn btn--gray del-btn">🗑️ Entfernen</button></div>`; c.querySelector('.copy-btn').onclick=()=>navigator.clipboard.writeText(`${t.main.join('-')}${t.super!=null?' | SZ:'+t.super:''}`); c.querySelector('.del-btn').onclick=()=>{ c.remove(); generated=generated.filter(g=>g!==t); }; return c; }
 
-async function tryAutoLoad(){
-  const url=$('#archiveUrl').value.trim();
-  try{ const text=await fetchWithProxies(url); parseArchiveText(text,'latest'); }
-  catch(e){ const saved=localStorage.getItem(ARCH_KEY); if(saved){ parseArchiveText(saved,'manual'); } }
-}
-function init(){
-  const u=$('#archiveUrl').value.trim(); $('#directDl').href=u;
-  const saved=localStorage.getItem(ARCH_KEY);
-  if(saved){ try{ parseArchiveText(saved,'manual'); $('#statusText').textContent='Archiv aus Speicher geladen ✔'; }catch{} }
-  setKPIs(); buildMap([]);
-  setTimeout(tryAutoLoad, 400);
-}
+document.getElementById('generateBtn').addEventListener('click', async ()=>{ if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; } const total=+$('#kombis').value||1; const out=$('#liveOutput'); out.textContent=''; $('#cards').innerHTML=''; generated=[]; const seen=new Set(); for(let i=1;i<=total;i++){ try{ let tip=generateOne(); let key=tip.main.join('-')+'|'+(tip.super??'x'); let guard=0; while(seen.has(key) && guard<10){ tip=generateOne(); key=tip.main.join('-')+'|'+(tip.super??'x'); guard++; } seen.add(key); generated.push(tip); await printTip(out,i,tip); $('#cards').appendChild(tipCard(i,tip)); }catch(e){ const err=$('#groupError'); err.classList.remove('hidden'); err.textContent=e.message; break; } } });
+$('#clearGeneratedBtn').addEventListener('click', ()=>{ generated=[]; $('#cards').innerHTML=''; $('#liveOutput').textContent=''; buildMap([]); });
+$('#analyseAllBtn').addEventListener('click', ()=>{ if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; } let html='<div class="glass mt-2"><div class="font-bold mb-2">Auswertung (offizielle Zählung)</div><div class="overflow-auto"><table class="text-sm min-w-full"><thead><tr><th class="px-2 py-1 text-left">#</th><th class="px-2 py-1 text-left">Kombi</th><th class="px-2 py-1">6R</th><th class="px-2 py-1">5R</th><th class="px-2 py-1">4R</th><th class="px-2 py-1">3R</th><th class="px-2 py-1">Exakt6</th></tr></thead><tbody>'; generated.forEach((t,i)=>{ const a=analyseVariant(t); const label=t.main.join(' ')+(t.super!=null?' | SZ:'+t.super:''); html+=`<tr class="border-t border-white/10"><td class="px-2 py-1">${i+1}</td><td class="px-2 py-1">${label}</td><td class="px-2 py-1 text-center">${a.hit6}</td><td class="px-2 py-1 text-center">${a.hit5}</td><td class="px-2 py-1 text-center">${a.hit4}</td><td class="px-2 py-1 text-center">${a.hit3}</td><td class="px-2 py-1 text-center">${a.exact}</td></tr>`; }); html+='</tbody></table></div></div>'; $('#analysisBox').innerHTML=html; tab('ana', $('#btn-ana')); });
+
+async function tryAutoLoad(){ const url=$('#archiveUrl').value.trim(); try{ const text=await fetchWithProxies(url); parseArchiveText(text,'latest'); } catch(e){ const saved=localStorage.getItem(ARCH_KEY); if(saved){ parseArchiveText(saved,'manual'); } } }
+function init(){ const u=$('#archiveUrl').value.trim(); $('#directDl').href=u; const saved=localStorage.getItem(ARCH_KEY); if(saved){ try{ parseArchiveText(saved,'manual'); $('#statusText').textContent='Archiv aus Speicher geladen ✔'; }catch{} } setKPIs(); buildMap([]); setTimeout(tryAutoLoad, 400); }
 init();
 </script>
 </body>

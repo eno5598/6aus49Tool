@@ -1,119 +1,175 @@
 <!DOCTYPE html>
 <html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lotto 6aus49 Tool by EnoWeb • v1.6 (ALLE Ziehungen)</title>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lotto 6aus49 Tool by EnoWeb • v1.7 (Auto-Update + NEU-Erkennung)</title>
+
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
 <style>
-:root{ --cy:#00fff0; --mag:#ff00ea; --ink:#eaf7ff; --bg:#060712; --ok:#39ff88; --bad:#ff6b94; }
-body{background:radial-gradient(900px 700px at -10% -10%, rgba(0,255,240,.12), transparent 60%), radial-gradient(900px 700px at 110% -10%, rgba(255,0,234,.12), transparent 60%), var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui;}
-.title{background:linear-gradient(90deg,var(--cy),var(--mag)); -webkit-background-clip:text; color:transparent; font-weight:900}
-.glass{background:rgba(15,18,40,.78); backdrop-filter: blur(14px); border:1px solid rgba(0,255,255,.18); border-radius:14px; padding:14px; box-shadow: 0 12px 40px rgba(0,0,0,.45);}
-.nav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px; min-width:90px;height:78px;padding:8px 10px;border-radius:16px;background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); border:1px solid rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 8px 22px rgba(0,0,0,.4);}
-.nav-btn.active{outline:2px solid rgba(255,255,255,.15); box-shadow:0 0 20px rgba(0,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.1);}
-.chip{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:10px;margin:4px;font-weight:800;font-size:.9rem;color:#bdfcff;background:linear-gradient(180deg,#0e1530,#15204a);border:1px solid rgba(0,255,255,.25);}
-.chip.super{color:#fff3d1;background:linear-gradient(180deg,#2b1f0e,#433516);border-color:rgba(255,217,0,.35)}
-.badge{background:rgba(255,255,255,.06); border:1px solid rgba(140,170,255,.22); border-radius:999px; padding:.15rem .6rem; font-size:.74rem;}
-.counter{padding:.2rem .55rem;border-radius:999px;font-weight:700}
-.counter.red{background:#3a1520;border:1px solid var(--bad)}
-.counter.green{background:#153a29;border:1px solid var(--ok)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:44px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);font-weight:700}
-.btn--green{background:#15803d;color:#fff;}
-.btn--amber{background:#b45309;color:#fff;}
-.btn--gray{background:#374151;color:#fff;}
-.btn:hover{filter:brightness(1.1)}
-.file-label{cursor:pointer; padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); display:inline-flex; gap:8px; align-items:center;}
-.file-input{display:none}
-table th, table td { white-space: nowrap; }
-.map{display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap:6px;}
-.cell{position:relative; text-align:center; border-radius:10px; padding:8px 0; font-weight:800; border:1px solid rgba(0,255,255,.15);
-      background:linear-gradient(180deg,#0e1530,#15204a); color:#bdfcff;}
-.cell .cnt{position:absolute; right:6px; bottom:4px; font-size:.65rem; opacity:.8}
-.cell.sel{box-shadow:0 0 16px rgba(0,255,240,.5), inset 0 0 0 1px rgba(0,255,255,.6);}
+  :root{ --cy:#00fff0; --mag:#ff00ea; --ink:#eaf7ff; --bg:#060712; --ok:#39ff88; --bad:#ff6b94; --amber:#f59e0b; }
+  body{background:radial-gradient(900px 700px at -10% -10%, rgba(0,255,240,.12), transparent 60%), radial-gradient(900px 700px at 110% -10%, rgba(255,0,234,.12), transparent 60%), var(--bg); color:var(--ink); font-family:Inter, ui-sans-serif, system-ui;}
+  .title{background:linear-gradient(90deg,var(--cy),var(--mag)); -webkit-background-clip:text; color:transparent; font-weight:900}
+  .glass{background:rgba(15,18,40,.78); backdrop-filter: blur(14px); border:1px solid rgba(0,255,255,.18); border-radius:14px; padding:14px; box-shadow: 0 12px 40px rgba(0,0,0,.45);}
+  .nav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px; min-width:90px;height:78px;padding:8px 10px;border-radius:16px;background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); border:1px solid rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 8px 22px rgba(0,0,0,.4);}
+  .nav-btn.active{outline:2px solid rgba(255,255,255,.15); box-shadow:0 0 20px rgba(0,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.1);}
+  .chip{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:10px;margin:4px;font-weight:800;font-size:.9rem;color:#bdfcff;background:linear-gradient(180deg,#0e1530,#15204a);border:1px solid rgba(0,255,255,.25);}
+  .chip.super{color:#fff3d1;background:linear-gradient(180deg,#2b1f0e,#433516);border-color:rgba(255,217,0,.35)}
+  .badge{background:rgba(255,255,255,.06); border:1px solid rgba(140,170,255,.22); border-radius:999px; padding:.15rem .6rem; font-size:.74rem;}
+  .counter{padding:.2rem .55rem;border-radius:999px;font-weight:700}
+  .counter.red{background:#3a1520;border:1px solid var(--bad)}
+  .counter.green{background:#153a29;border:1px solid var(--ok)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:44px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.08);font-weight:700}
+  .btn--green{background:#15803d;color:#fff;}
+  .btn--amber{background:#b45309;color:#fff;}
+  .btn--gray{background:#374151;color:#fff;}
+  .btn:hover{filter:brightness(1.1)}
+  .file-label{cursor:pointer; padding:10px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:linear-gradient(180deg,rgba(18,24,50,.9),rgba(14,18,36,.9)); display:inline-flex; gap:8px; align-items:center;}
+  .file-input{display:none}
+  table th, table td { white-space: nowrap; }
+  .map{display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap:6px;}
+  .cell{position:relative; text-align:center; border-radius:10px; padding:8px 0; font-weight:800; border:1px solid rgba(0,255,255,.15);
+        background:linear-gradient(180deg,#0e1530,#15204a); color:#bdfcff;}
+  .cell .cnt{position:absolute; right:6px; bottom:4px; font-size:.65rem; opacity:.8}
+  .cell.sel{box-shadow:0 0 16px rgba(0,255,240,.5), inset 0 0 0 1px rgba(0,255,255,.6);}
+  .banner{display:none;align-items:center;gap:10px; border:1px solid rgba(255,255,255,.15); border-radius:12px; padding:10px 12px; margin-bottom:10px;}
+  .banner--new{background:rgba(21,128,61,.2); border-color:#15803d;}
+  .banner--warn{background:rgba(245,158,11,.15); border-color:var(--amber);}
 </style>
 </head>
 <body class="p-5">
-<h1 class="title text-3xl md:text-4xl mb-4">Lotto 6aus49 Tool by EnoWeb</h1>
-<div class="flex justify-center flex-wrap gap-3 mb-6">
-  <button type="button" onclick="tab('archiv', this)" class="nav-btn active" id="btn-archiv"><div>📂</div><span>Archiv</span></button>
-  <button type="button" onclick="tab('gen', this)" class="nav-btn" id="btn-gen"><div>⚡</div><span>Generieren</span></button>
-  <button type="button" onclick="tab('ana', this)" class="nav-btn" id="btn-ana"><div>📊</div><span>Analyse</span></button>
-</div>
-<div id="v-archiv" class="glass">
-  <h2 class="text-xl font-bold mb-2">📂 Archiv</h2>
-  <p id="statusText" class="text-sm mb-2">Noch kein Archiv geladen.</p>
-  <div class="glass mb-3">
-    <div class="font-semibold mb-2">Automatisches Laden</div>
-    <div class="flex flex-col md:flex-row gap-2">
-      <input id="archiveUrl" class="bg-gray-900 p-2 rounded flex-1" value="https://www.lotto-bayern.de/static/gamebroker_2/de/download_files/archiv_lotto.zip">
-      <button type="button" id="loadLatestBtn" class="btn btn--green">📥 Neueste laden</button>
-      <button type="button" id="forceDlBtn" class="btn btn--amber">⬇️ ZIP speichern</button>
-      <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener">🔗 Direktlink</a>
+  <h1 class="title text-3xl md:text-4xl mb-4">Lotto 6aus49 Tool by EnoWeb</h1>
+
+  <div class="flex justify-center flex-wrap gap-3 mb-6">
+    <button type="button" onclick="tab('archiv', this)" class="nav-btn active" id="btn-archiv"><div>📂</div><span>Archiv</span></button>
+    <button type="button" onclick="tab('gen', this)" class="nav-btn" id="btn-gen"><div>⚡</div><span>Generieren</span></button>
+    <button type="button" onclick="tab('ana', this)" class="nav-btn" id="btn-ana"><div>📊</div><span>Analyse</span></button>
+  </div>
+
+  <!-- ARCHIV -->
+  <div id="v-archiv" class="glass">
+    <h2 class="text-xl font-bold mb-2">📂 Archiv</h2>
+    <div id="updateBanner" class="banner banner--new"><span>🟢 Neue Ziehung erkannt:</span><b id="newDrawDate"></b></div>
+    <div id="staleBanner" class="banner banner--warn"><span>🟠 Hinweis:</span><span>Archiv konnte nicht online geprüft werden. Es wurde die zuletzt gespeicherte Version geladen.</span></div>
+
+    <p id="statusText" class="text-sm mb-2">Noch kein Archiv geladen.</p>
+
+    <div class="glass mb-3">
+      <div class="font-semibold mb-2">Automatisches Laden</div>
+      <div class="flex flex-col md:flex-row gap-2">
+        <input id="archiveUrl" class="bg-gray-900 p-2 rounded flex-1" value="https://www.lotto-bayern.de/static/gamebroker_2/de/download_files/archiv_lotto.zip">
+        <button type="button" id="loadLatestBtn" class="btn btn--green">📥 Neueste laden</button>
+        <button type="button" id="forceDlBtn" class="btn btn--amber">⬇️ ZIP speichern</button>
+        <a id="directDl" class="btn btn--gray" target="_blank" rel="noopener">🔗 Direktlink</a>
+      </div>
+      <p class="text-xs text-gray-300 mt-2">Beim Öffnen/Reload wird automatisch versucht, das aktuellste Archiv zu laden. Wenn ein neueres Ziehungsdatum erkannt wird, siehst du oben eine grüne Meldung.</p>
     </div>
-    <p class="text-xs text-gray-300 mt-2">Beim Laden werden <b>alle</b> TXT/CSV in der ZIP (losa, lomi1, lomi2, lotto …) zusammengeführt und komplett gezählt.</p>
-  </div>
-  <div class="glass mb-3">
-    <div class="font-semibold mb-2">Manuell laden</div>
-    <label class="file-label">
-      📄 Dateien auswählen (mehrere möglich)
-      <input multiple type="file" id="zipInput" class="file-input" accept=".zip,.txt,.csv">
-    </label>
-    <span id="fileName" class="ml-2 text-sm opacity-80">Keine Datei ausgewählt</span>
-  </div>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
-    <div><div class="text-sm text-gray-300">Ziehungen</div><div id="kpiCount" class="font-bold">–</div></div>
-    <div><div class="text-sm text-gray-300">Von</div><div id="kpiFrom" class="font-bold">–</div></div>
-    <div><div class="text-sm text-gray-300">Bis</div><div id="kpiTo" class="font-bold">–</div></div>
-    <div><div class="text-sm text-gray-300">Aktualität</div><div id="kpiFresh" class="font-bold">–</div></div>
-  </div>
-</div>
-<div id="v-gen" class="glass hidden">
-  <h2 class="text-xl font-bold mb-2">⚡ Generieren</h2>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-    <div><label class="text-sm text-gray-300">Anzahl Kombinationen</label>
-      <input type="number" id="kombis" value="5" min="1" max="25" class="bg-gray-900 p-2 rounded w-full"></div>
-    <div class="grid grid-cols-3 gap-2">
-      <button type="button" id="generateBtn" class="btn btn--green">⚡ Generieren</button>
-      <button type="button" id="analyseAllBtn" class="btn btn--amber">📊 Alle analysieren</button>
-      <button type="button" id="clearGeneratedBtn" class="btn btn--gray">🗑️ Alle löschen</button>
+
+    <div class="glass mb-3">
+      <div class="font-semibold mb-2">Manuell laden</div>
+      <label class="file-label">
+        📄 Dateien auswählen (mehrere möglich)
+        <input multiple type="file" id="zipInput" class="file-input" accept=".zip,.txt,.csv">
+      </label>
+      <span id="fileName" class="ml-2 text-sm opacity-80">Keine Datei ausgewählt</span>
     </div>
-    <div class="flex items-center gap-3">
-      <label class="inline-flex items-center gap-2"><input id="useSuper" type="checkbox" checked><span class="text-sm">Superzahl berücksichtigen</span></label>
-      <label class="inline-flex items-center gap-2"><input id="superManual" type="checkbox"><span class="text-sm">Superzahl-Gruppen vorgeben</span></label>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+      <div><div class="text-sm text-gray-300">Ziehungen</div><div id="kpiCount" class="font-bold">–</div></div>
+      <div><div class="text-sm text-gray-300">Von</div><div id="kpiFrom" class="font-bold">–</div></div>
+      <div><div class="text-sm text-gray-300">Bis</div><div id="kpiTo" class="font-bold">–</div></div>
+      <div><div class="text-sm text-gray-300">Letztes Online-Check</div><div id="kpiFresh" class="font-bold">–</div></div>
     </div>
   </div>
-  <div id="groupUI" class="mt-4">
-    <div class="mb-1 text-sm text-gray-300 flex items-center gap-3"><span>Gruppen: exakt 6 erforderlich</span><span id="mainCounter" class="counter red">0/6</span><span id="superCounter" class="counter green">1/1</span></div>
-    <div id="groupControls" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
-    <div id="superControls" class="grid grid-cols-2 gap-2 mt-2 hidden"></div>
-    <div id="groupError" class="bg-red-900/40 border border-red-400 text-red-200 rounded px-2 py-1 hidden mt-2"></div>
+
+  <!-- GENERIEREN -->
+  <div id="v-gen" class="glass hidden">
+    <h2 class="text-xl font-bold mb-2">⚡ Generieren</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="text-sm text-gray-300">Anzahl Kombinationen</label>
+        <input type="number" id="kombis" value="5" min="1" max="25" class="bg-gray-900 p-2 rounded w-full">
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" id="generateBtn" class="btn btn--green">⚡ Generieren</button>
+        <button type="button" id="analyseAllBtn" class="btn btn--amber">📊 Alle analysieren</button>
+        <button type="button" id="clearGeneratedBtn" class="btn btn--gray">🗑️ Alle löschen</button>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="inline-flex items-center gap-2">
+          <input id="useSuper" type="checkbox" checked><span class="text-sm">Superzahl berücksichtigen</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+          <input id="superManual" type="checkbox"><span class="text-sm">Superzahl-Gruppen vorgeben</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="groupUI" class="mt-4">
+      <div class="mb-1 text-sm text-gray-300 flex items-center gap-3">
+        <span>Gruppen: exakt 6 erforderlich</span>
+        <span id="mainCounter" class="counter red">0/6</span>
+        <span id="superCounter" class="counter green">1/1</span>
+      </div>
+      <div id="groupControls" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+      <div id="superControls" class="grid grid-cols-2 gap-2 mt-2 hidden"></div>
+      <div id="groupError" class="bg-red-900/40 border border-red-400 text-red-200 rounded px-2 py-1 hidden mt-2"></div>
+    </div>
+
+    <div class="mt-4">
+      <div class="flex items-center gap-2 mb-1">
+        <h3 class="font-bold">🗺️ Map</h3>
+        <span class="text-xs opacity-80">Farbintensität = Häufigkeit (komplettes Archiv).</span>
+      </div>
+      <div id="numMap" class="map"></div>
+    </div>
+
+    <pre id="liveOutput" class="font-mono bg-black/70 p-3 mt-3 rounded h-44 overflow-auto text-green-300"></pre>
+    <div id="cards" class="mt-3"></div>
   </div>
-  <div class="mt-4">
-    <div class="flex items-center gap-2 mb-1"><h3 class="font-bold">🗺️ Map</h3><span class="text-xs opacity-80">Farbintensität = Häufigkeit (komplettes Archiv).</span></div>
-    <div id="numMap" class="map"></div>
+
+  <!-- ANALYSE -->
+  <div id="v-ana" class="glass hidden">
+    <h2 class="text-xl font-bold mb-2">📊 Analyse</h2>
+    <div id="analysisBox" class="mt-1 text-sm"></div>
   </div>
-  <pre id="liveOutput" class="font-mono bg-black/70 p-3 mt-3 rounded h-44 overflow-auto text-green-300"></pre>
-  <div id="cards" class="mt-3"></div>
-</div>
-<div id="v-ana" class="glass hidden">
-  <h2 class="text-xl font-bold mb-2">📊 Analyse</h2>
-  <div id="analysisBox" class="mt-1 text-sm"></div>
-</div>
 
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-function tab(name, btn){ ['archiv','gen','ana'].forEach(n=>$('#v-'+n).classList.add('hidden')); $('#v-'+name).classList.remove('hidden'); $$('.nav-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); }
-let draws=[]; let freqMain=Array(50).fill(0); let freqSuper=Array(10).fill(0); let generated=[];
+function tab(name, btn){
+  ['archiv','gen','ana'].forEach(n=>$('#v-'+n).classList.add('hidden'));
+  $('#v-'+name).classList.remove('hidden');
+  $$('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
 
-function iso(y,m,d){ const Y=(+y<100)?(2000+(+y)):(+y); const dt=new Date(Date.UTC(Y,+m-1,+d)); if(isNaN(dt)) return null; return dt.toISOString().slice(0,10); }
+let draws=[]; let freqMain=Array(50).fill(0); let freqSuper=Array(10).fill(0); let generated=[];
+const LS_ARCH='lz_all_archive_v17'; const LS_LASTDATE='lz_last_seen_draw_v17'; const LS_LASTCHECK='lz_last_online_check_v17';
+
+/* ---------- Parser: ALLE Ziehungen, A/B pro Zeile ---------- */
+function iso(y,m,d){
+  const Y=(+y<100)?(2000+(+y)):(+y);
+  const dt=new Date(Date.UTC(Y,+m-1,+d));
+  return isNaN(dt)? null : dt.toISOString().slice(0,10);
+}
 function tokenize(line){ return line.replace(/[,;\t]/g,' ').trim().split(/\s+/); }
 function plausibleDMY(d,m,y){ return d>=1 && d<=31 && m>=1 && m<=12 && y>=1900 && y<=2100; }
 function extractDateAndNumbers(line){
   const tok=tokenize(line); if(tok.length<9) return null;
   let d=null,m=null,y=null,startIdx=0;
   if(/^\d+$/.test(tok[0]) && /^\d+$/.test(tok[1]) && /^\d+$/.test(tok[2])){ d=+tok[0]; m=+tok[1]; y=+tok[2]; if(plausibleDMY(d,m,y)) startIdx=3; else {d=m=y=null;} }
-  if(!d){ const m1=line.match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/); if(m1){ d=+m1[1]; m=+m1[2]; y=+m1[3]; if(plausibleDMY(d,m,y)){ const after=line.replace(m1[0],' ').replace(/[;,]/g,' ').trim().split(/\s+/); return {date:iso(y,m,d), nums:after.map(Number).filter(n=>!Number.isNaN(n))}; }}}
+  if(!d){
+    const m1=line.match(/(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
+    if(m1){ d=+m1[1]; m=+m1[2]; y=+m1[3];
+      if(plausibleDMY(d,m,y)){
+        const after=line.replace(m1[0],' ').replace(/[;,]/g,' ').trim().split(/\s+/);
+        return {date: iso(y,m,d), nums: after.map(Number).filter(n=>!Number.isNaN(n))};
+      }
+    }
+  }
   if(!d) return null;
   return { date: iso(y,m,d), nums: tok.slice(startIdx).map(Number).filter(n=>!Number.isNaN(n)) };
 }
@@ -122,15 +178,16 @@ function extractDrawSets(nums){
   while(i<nums.length){
     const main=[]; let j=i;
     while(j<nums.length && main.length<6){ const n=nums[j]; if(1<=n && n<=49) main.push(n); j++; }
-    if(main.length===6){ out.push(main.sort((a,b)=>a-b));
-      if(j<nums.length && 1<=nums[j] && nums[j]<=49) j++; // alte Zusatz
-      while(j<nums.length && 0<=nums[j] && nums[j]<=9) j++; // Superzahlen ignorieren
+    if(main.length===6){
+      out.push(main.sort((a,b)=>a-b));
+      if(j<nums.length && 1<=nums[j] && nums[j]<=49) j++;   // alte Zusatzzahl optional
+      while(j<nums.length && 0<=nums[j] && nums[j]<=9) j++; // Superzahlen optional ignorieren
       i=j;
     } else { break; }
   }
   return out;
 }
-function parseArchiveText(txt){
+function parseArchiveText(txt, saveToLS=true){
   try{
     const lines=txt.replace(/\r\n?/g,'\n').split('\n').map(l=>l.trim()).filter(Boolean);
     draws=[]; freqMain.fill(0); freqSuper.fill(0);
@@ -139,19 +196,30 @@ function parseArchiveText(txt){
       const sets=extractDrawSets(dn.nums);
       for(const main of sets){ draws.push({date:dn.date, main}); main.forEach(n=>freqMain[n]++); }
     }
-    if(!draws.length) throw new Error('Keine gültigen Ziehungen erkannt (prüfe Format).');
+    if(!draws.length) throw new Error('Keine gültigen Ziehungen erkannt (Format weicht ab).');
     draws.sort((a,b)=>a.date.localeCompare(b.date));
-    $('#kpiCount').textContent=draws.length; $('#kpiFrom').textContent=draws[0].date; $('#kpiTo').textContent=draws.at(-1).date; $('#kpiFresh').textContent='–';
-    $('#statusText').textContent='Archiv geladen ✔ (alle Ziehungen)'; buildMap([]);
-  }catch(e){ console.error(e); $('#statusText').textContent='Fehler: '+e.message; }
+    $('#kpiCount').textContent=draws.length; $('#kpiFrom').textContent=draws[0].date; $('#kpiTo').textContent=draws.at(-1).date;
+    $('#statusText').textContent='Archiv geladen ✔ (alle Ziehungen)';
+    $('#kpiFresh').textContent = localStorage.getItem(LS_LASTCHECK) || '–';
+    if(saveToLS){ localStorage.setItem(LS_ARCH, txt); }
+    buildMap([]);
+    return draws.at(-1).date;
+  }catch(e){ $('#statusText').textContent='Fehler: '+e.message; return null; }
 }
+
+/* ---------- Map ---------- */
 function buildMap(highlight=[]){
-  const host=$('#numMap'); host.innerHTML=''; const max=Math.max(...freqMain.slice(1))||1;
-  for(let n=1;n<=49;n++){ const f=freqMain[n]; const alpha=0.1+0.9*(f/max);
+  const host = $('#numMap'); host.innerHTML='';
+  const max = Math.max(...freqMain.slice(1)) || 1;
+  for(let n=1;n<=49;n++){
+    const f=freqMain[n]; const alpha=0.1 + 0.9*(f/max);
     const div=document.createElement('div'); div.className='cell'+(highlight.includes(n)?' sel':'');
     div.style.background=`linear-gradient(180deg, rgba(0,255,240,${alpha*.3}), rgba(0,160,220,${alpha*.15}))`;
-    div.innerHTML=`<span>${n}</span><span class="cnt">${f}</span>`; host.appendChild(div); }
+    div.innerHTML=`<span>${n}</span><span class="cnt">${f}</span>`; host.appendChild(div);
+  }
 }
+
+/* ---------- ZIP Laden (mit CORS-Proxys) ---------- */
 async function ensureJSZip(){ return !!window.JSZip; }
 async function fetchWithProxies(url){
   const trials=[url,'https://cors.isomorphic-git.org/'+url,'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://thingproxy.freeboard.io/fetch/'+url,'https://corsproxy.io/?'+encodeURIComponent(url)];
@@ -163,93 +231,306 @@ async function fetchWithProxies(url){
       if(ct.includes('zip') || u.endsWith('.zip')){
         if(!(await ensureJSZip())) throw new Error('JSZip fehlt.');
         const blob=await res.blob(); const zip=await JSZip.loadAsync(blob); const entries=Object.values(zip.files);
-        const wanted=entries.filter(f=>/\.(txt|csv)$/i.test(f.name)); if(!wanted.length) throw new Error('ZIP ohne TXT/CSV');
-        let combined=''; for(const f of wanted){ combined+='\n'+await f.async('string'); } return combined;
+        const wanted = entries.filter(f=>/\.(txt|csv)$/i.test(f.name));
+        if(!wanted.length) throw new Error('ZIP ohne TXT/CSV');
+        let combined=''; for(const f of wanted){ combined += '\\n' + await f.async('string'); }
+        return combined;
       } else { return await res.text(); }
     }catch(e){ last=e; }
-  } throw last||new Error('Download fehlgeschlagen');
+  }
+  throw last||new Error('Download fehlgeschlagen');
 }
-document.getElementById('loadLatestBtn').addEventListener('click', async ()=>{
-  const url=$('#archiveUrl').value.trim(); $('#statusText').textContent='Lade Archiv…';
-  try{ const text=await fetchWithProxies(url); parseArchiveText(text); }
-  catch(e){ $('#statusText').innerHTML="Download nicht möglich. <a class='underline' target='_blank' href='"+url+"'>Manuell öffnen</a>."; }
-});
+
+/* ---------- Automatischer Online-Check ---------- */
+async function loadLatestAndDetect(){
+  const url=$('#archiveUrl').value.trim();
+  $('#updateBanner').style.display='none'; $('#staleBanner').style.display='none';
+  $('#statusText').textContent='Online-Archiv wird geprüft…';
+  try{
+    const raw = await fetchWithProxies(url);
+    const latestDate = parseArchiveText(raw, true);
+    const lastSeen = localStorage.getItem(LS_LASTDATE);
+    if(latestDate){
+      const newDetected = (!lastSeen || latestDate > lastSeen);
+      if(newDetected){
+        $('#newDrawDate').textContent = latestDate;
+        $('#updateBanner').style.display='flex';
+      }
+      localStorage.setItem(LS_LASTDATE, latestDate);
+      const now = new Date().toISOString().replace('T',' ').slice(0,16);
+      localStorage.setItem(LS_LASTCHECK, now);
+      $('#kpiFresh').textContent = now;
+    }
+  }catch(e){
+    // Fallback: gespeichertes Archiv nutzen
+    const saved = localStorage.getItem(LS_ARCH);
+    if(saved){
+      parseArchiveText(saved, false);
+      $('#staleBanner').style.display='flex';
+    }else{
+      $('#statusText').textContent='Online-Check fehlgeschlagen und kein gespeichertes Archiv vorhanden.';
+    }
+  }
+}
+
+/* ---------- UI Events ---------- */
+document.getElementById('loadLatestBtn').addEventListener('click', loadLatestAndDetect);
 document.getElementById('forceDlBtn').addEventListener('click', async ()=>{
   const url=$('#archiveUrl').value.trim();
   try{ const res=await fetch(url); const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='archiv_lotto.zip'; a.click(); URL.revokeObjectURL(a.href); }catch(e){ alert('Direkt-Download nicht möglich.'); }
 });
 (function(){ const u=$('#archiveUrl').value.trim(); $('#directDl').href=u; })();
+
 document.getElementById('zipInput').addEventListener('change', async (e)=>{
   const files=Array.from(e.target.files||[]); if(!files.length) return; $('#fileName').textContent=files.map(f=>f.name).join(', ');
   try{
-    let combined=''; for(const file of files){
-      if(file.name.toLowerCase().endsWith('.zip')){ const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined+='\n'+await f.async('string'); } } }
-      else { combined+='\n'+await file.text(); }
-    } parseArchiveText(combined);
+    let combined='';
+    for(const file of files){
+      if(file.name.toLowerCase().endsWith('.zip')){
+        const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
+        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined += "\\n" + await f.async('string'); } }
+      }else{ combined += "\\n" + await file.text(); }
+    }
+    const latestDate = parseArchiveText(combined, true);
+    if(latestDate){
+      localStorage.setItem(LS_LASTDATE, latestDate);
+      const now = new Date().toISOString().replace('T',' ').slice(0,16);
+      localStorage.setItem(LS_LASTCHECK, now); $('#kpiFresh').textContent = now;
+    }
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
 });
 document.body.addEventListener('dragover', e=>{ e.preventDefault(); });
 document.body.addEventListener('drop', async e=>{
   e.preventDefault(); const files=Array.from(e.dataTransfer?.files||[]); if(!files.length) return;
-  $('#fileName').textContent=files.map(f=>f.name).join(', '); $('#statusText').textContent='Lade Dateien…';
+  $('#fileName').textContent = files.map(f=>f.name).join(', '); $('#statusText').textContent='Lade Dateien…';
   try{
-    let combined=''; for(const file of files){
-      if(file.name.toLowerCase().endsWith('.zip')){ const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
-        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined+='\n'+await f.async('string'); } } }
-      else { combined+='\n'+await file.text(); }
-    } parseArchiveText(combined);
+    let combined='';
+    for(const file of files){
+      if(file.name.toLowerCase().endsWith('.zip')){
+        const zip=await JSZip.loadAsync(file); const entries=Object.values(zip.files);
+        for(const f of entries){ if(/\.(txt|csv)$/i.test(f.name)){ combined += "\\n" + await f.async('string'); } }
+      }else{ combined += "\\n" + await file.text(); }
+    }
+    const latestDate = parseArchiveText(combined, true);
+    if(latestDate){
+      localStorage.setItem(LS_LASTDATE, latestDate);
+      const now = new Date().toISOString().replace('T',' ').slice(0,16);
+      localStorage.setItem(LS_LASTCHECK, now); $('#kpiFresh').textContent = now;
+    }
   }catch(err){ $('#statusText').textContent='Fehler: '+err.message; }
 });
-// Gruppen & Generator
+
+/* ---------- Gruppen & Generator (unverändert) ---------- */
 const GROUPS=[{label:'1–10',from:1,to:10},{label:'11–20',from:11,to:20},{label:'21–30',from:21,to:30},{label:'31–40',from:31,to:40},{label:'41–49',from:41,to:49}];
 const SGROUPS=[{label:'0–4',from:0,to:4},{label:'5–9',from:5,to:9}];
-function buildGroupUI(){ const host=$('#groupControls'); host.innerHTML='';
-  GROUPS.forEach((g,i)=>{ const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
+function buildGroupUI(){
+  const host=$('#groupControls'); host.innerHTML='';
+  GROUPS.forEach((g,i)=>{
+    const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
     row.innerHTML=`<div class="font-bold">${g.label}</div><select class="bg-gray-900 p-2 rounded" data-idx="${i}">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}">${v}</option>`).join('')}</select><div class="text-right text-sm text-gray-400">0</div>`;
-    host.appendChild(row); }); $$('#groupControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters)); updateGroupCounters(); }
-function buildSuperUI(){ const host=$('#superControls'); host.innerHTML='';
-  SGROUPS.forEach((g,i)=>{ const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
+    host.appendChild(row);
+  });
+  $$('#groupControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
+  updateGroupCounters();
+}
+function buildSuperUI(){
+  const host=$('#superControls'); host.innerHTML='';
+  SGROUPS.forEach((g,i)=>{
+    const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
     row.innerHTML=`<div class="font-bold">${g.label}</div><select class="bg-gray-900 p-2 rounded super" data-idx="${i}">${[0,1].map(v=>`<option value="${v}">${v}</option>`).join('')}</select><div class="text-right text-sm text-gray-400">0</div>`;
-    host.appendChild(row); }); $$('#superControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters)); }
-function setCounter(el,val,total){ el.textContent=`${val}/${total}`; el.classList.toggle('green',val===total); el.classList.toggle('red',val!==total); }
-function updateGroupCounters(){ let sumG=0; $$('#groupControls select').forEach(s=>{ const v=+s.value||0; sumG+=v; s.parentElement.lastChild.textContent=v; });
-  setCounter($('#mainCounter'),sumG,6); let sumS=$('#useSuper').checked && $('#superManual').checked ? $$('#superControls select').reduce((a,s)=>a+(+s.value||0),0) : 1; setCounter($('#superCounter'),sumS,1);
-  const err=$('#groupError'); err.classList.add('hidden'); err.textContent=''; if(sumG!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; }
-  if($('#useSuper').checked && $('#superManual').checked && sumS!==1){ err.classList.remove('hidden'); err.textContent='Superzahl-Summe muss 1 sein.'; } }
-buildGroupUI(); buildSuperUI(); $('#useSuper').addEventListener('change', updateGroupCounters);
+    host.appendChild(row);
+  });
+  $$('#superControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
+}
+function setCounter(el, val, total){ el.textContent = `${val}/${total}`; el.classList.toggle('green', val===total); el.classList.toggle('red', val!==total); }
+function updateGroupCounters(){
+  let sumG=0; $$('#groupControls select').forEach(s=>{ const v=+s.value||0; sumG+=v; s.parentElement.lastChild.textContent=v; });
+  setCounter($('#mainCounter'), sumG, 6);
+  let sumS = $('#useSuper').checked && $('#superManual').checked ?
+    $$('#superControls select').reduce((a,s)=>a+(+s.value||0),0) : 1;
+  setCounter($('#superCounter'), sumS, 1);
+  const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
+  if(sumG!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; }
+  if($('#useSuper').checked && $('#superManual').checked && sumS!==1){ err.classList.remove('hidden'); err.textContent='Superzahl-Summe muss 1 sein.'; }
+}
+buildGroupUI(); buildSuperUI();
+$('#useSuper').addEventListener('change', updateGroupCounters);
 $('#superManual').addEventListener('change', e=>{ $('#superControls').classList.toggle('hidden', !e.target.checked); updateGroupCounters(); });
+
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t;} return a; }
-function pickFromRange(from,to,avoid,count,weightFn){ const bag=[]; for(let n=from;n<=to;n++){ if(!avoid.includes(n)){ const w=Math.max(1, weightFn?weightFn(n):1); for(let k=0;k<w;k++) bag.push(n);} } shuffle(bag);
-  const res=[]; for(const v of bag){ if(!res.includes(v)){ res.push(v); if(res.length===count) break; } } for(let n=from; res.length<count && n<=to; n++){ if(!res.includes(n) && !avoid.includes(n)) res.push(n); } return res; }
-function superAuto(){ const fs=[...freqSuper]; const m=Math.max(...fs)||1; const w=s=>1+Math.round(3*(fs[s]/m)); const r=pickFromRange(0,9,[],1,w); return r.length? r[0] : Math.floor(Math.random()*10); }
-function generateOne(){ if(!draws.length){ const main=pickFromRange(1,49,[],6).sort((a,b)=>a-b); const s=$('#useSuper').checked? superAuto():null; return {main, super:s}; }
-  const want=$$('#groupControls select').map(s=>+s.value||0); const sumWant=want.reduce((a,b)=>a+b,0); const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
+function pickFromRange(from,to,avoid,count,weightFn){
+  const bag=[]; for(let n=from;n<=to;n++){ if(!avoid.includes(n)){ const w=Math.max(1, weightFn?weightFn(n):1); for(let k=0;k<w;k++) bag.push(n);} }
+  shuffle(bag);
+  const res=[]; for(const v of bag){ if(!res.includes(v)){ res.push(v); if(res.length===count) break; } }
+  for(let n=from; res.length<count && n<=to; n++){ if(!res.includes(n) && !avoid.includes(n)) res.push(n); }
+  return res;
+}
+function superAuto(){
+  const fs=[...freqSuper]; const m=Math.max(...fs)||1;
+  const w = s=> 1 + Math.round(3*(fs[s]/m));
+  const r = pickFromRange(0,9,[],1,w);
+  return r.length? r[0] : Math.floor(Math.random()*10);
+}
+function generateOne(){
+  if(!draws.length){ const main = pickFromRange(1,49,[],6).sort((a,b)=>a-b); const s = $('#useSuper').checked ? superAuto() : null; return {main, super:s}; }
+  const want = $$('#groupControls select').map(s=>+s.value||0);
+  const sumWant = want.reduce((a,b)=>a+b,0);
+  const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
   if(sumWant!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; throw new Error('Gruppen nicht vollständig.'); }
-  const r=draws.slice(-200); const fm=Array(50).fill(1); r.forEach(d=>d.main.forEach(n=>fm[n]++)); const maxM=Math.max(...fm.slice(1)); const w=n=>Math.ceil(3*fm[n]/maxM);
+
+  const r=draws.slice(-200);
+  const fm=Array(50).fill(1); r.forEach(d=>d.main.forEach(n=>fm[n]++));
+  const maxM=Math.max(...fm.slice(1));
+  const w=n=>Math.ceil(3*fm[n]/maxM);
+
   let main=[]; [{from:1,to:10},{from:11,to:20},{from:21,to:30},{from:31,to:40},{from:41,to:49}].forEach((g,i)=>{ const need=want[i]; if(need>0){ main.push(...pickFromRange(g.from,g.to,main,need,w)); } });
-  main=Array.from(new Set(main)).sort((a,b)=>a-b).slice(0,6); let s=null;
-  if($('#useSuper').checked){ if($('#superManual').checked){ const wantS=$$('#superControls select').map(s=>+s.value||0); const sum=wantS.reduce((a,b)=>a+b,0); if(sum!==1){ throw new Error('Superzahl-Summe muss 1 sein.'); } const bag=[]; [{from:0,to:4},{from:5,to:9}].forEach((g,i)=>{ if(wantS[i]>0){ for(let n=g.from;n<=g.to;n++) bag.push(n);} }); s=bag.length? bag[Math.floor(Math.random()*bag.length)] : superAuto(); } else { s=superAuto(); } }
-  return {main, super:s}; }
+  main = Array.from(new Set(main)).sort((a,b)=>a-b).slice(0,6);
+
+  let s=null;
+  if($('#useSuper').checked){
+    if($('#superManual').checked){
+      const eWant = $$('#superControls select').map(s=>+s.value||0);
+      const eSum = eWant.reduce((a,b)=>a+b,0);
+      if(eSum!==1){ throw new Error('Superzahl-Summe muss 1 sein.'); }
+      let bag=[]; [{from:0,to:4},{from:5,to:9}].forEach((g,i)=>{ if(eWant[i]>0){ for(let n=g.from; n<=g.to; n++){ bag.push(n);} } });
+      s = bag.length? bag[Math.floor(Math.random()*bag.length)] : superAuto();
+    }else{ s = superAuto(); }
+  }
+  return {main, super:s};
+}
+
 async function typeLine(el, text){ for(const ch of text){ el.append(ch); await new Promise(r=>setTimeout(r,10));} }
-async function printTip(outEl, index, tip){ await typeLine(outEl, "#"+index+": "); for(const n of tip.main){ await typeLine(outEl, n+" "); } if(tip.super!=null){ await typeLine(outEl, "| SZ: "+tip.super); } outEl.append("\n"); outEl.scrollTop=outEl.scrollHeight; buildMap(tip.main); }
-function analyseVariant(tip){ let exact=0, hit6=0, hit5=0, hit4=0, hit3=0; for(const d of draws){ const m=tip.main.filter(x=>d.main.includes(x)).length; if(m===6){ hit6++; exact++; } if(m===5) hit5++; if(m===4) hit4++; if(m===3) hit3++; } return {exact, hit6, hit5, hit4, hit3}; }
-function tipCard(idx, tip){ const a=analyseVariant(tip); const card=document.createElement('div'); card.className='glass mb-3'; card.innerHTML = `<div class="flex items-center justify-between"><div>${tip.main.map(n=>`<span class="chip">${n}</span>`).join('')}${tip.super!=null ? '<span class="badge ml-2">SZ</span><span class="chip super">'+tip.super+'</span>' : ''}</div><span class="badge">#${idx}</span></div>
-  <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
-    <div class="badge">6 Richtige gesamt: <b>${a.hit6}</b></div>
-    <div class="badge">5 Richtige gesamt: <b>${a.hit5}</b></div>
-    <div class="badge">4 Richtige gesamt: <b>${a.hit4}</b></div>
-    <div class="badge">3 Richtige gesamt: <b>${a.hit3}</b></div>
-    <div class="badge">Exakt 6: <b>${a.exact}</b></div>
-  </div>
-  <div class="mt-2 flex gap-2 flex-wrap">
-    <button class="btn btn--gray copy-btn">📋 Kopieren</button>
-    <button class="btn btn--gray del-btn">🗑️ Entfernen</button>
-  </div>`; card.querySelector('.copy-btn').onclick=()=>navigator.clipboard.writeText(`${tip.main.join('-')}${tip.super!=null? ' | SZ:'+tip.super:''}`);
-  card.querySelector('.del-btn').onclick=()=>{ card.remove(); generated=generated.filter(g=>g!==tip); }; return card; }
-$('#generateBtn').addEventListener('click', async ()=>{ if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; } const total=+$('#kombis').value||1; const out=$('#liveOutput'); out.textContent=''; $('#cards').innerHTML=''; generated=[]; const seen=new Set(); for(let i=1;i<=total;i++){ try{ let tip=generateOne(); let key=tip.main.join('-')+'|'+(tip.super??'x'); let guard=0; while(seen.has(key)&&guard<10){ tip=generateOne(); key=tip.main.join('-')+'|'+(tip.super??'x'); guard++; } seen.add(key); generated.push(tip); await printTip(out,i,tip); $('#cards').appendChild(tipCard(i,tip)); }catch(e){ const err=$('#groupError'); err.classList.remove('hidden'); err.textContent=e.message; break; } } });
+async function printTip(outEl, index, tip){
+  await typeLine(outEl, "#"+index+": ");
+  for(const n of tip.main){ await typeLine(outEl, n+" "); }
+  if(tip.super!=null){ await typeLine(outEl, "| SZ: "+tip.super); }
+  outEl.append("\\n"); outEl.scrollTop = outEl.scrollHeight;
+  buildMap(tip.main);
+}
+
+function analyseVariant(tip){
+  let exact=0, hit6=0, hit5=0, hit4=0, hit3=0;
+  for(const d of draws){
+    const mMatch = tip.main.filter(x=>d.main.includes(x)).length;
+    if(mMatch===6){ hit6++; exact++; }
+    if(mMatch===5) hit5++;
+    if(mMatch===4) hit4++;
+    if(mMatch===3) hit3++;
+  }
+  return {exact, hit6, hit5, hit4, hit3};
+}
+
+function tipCard(idx, tip){
+  const a = analyseVariant(tip);
+  const card=document.createElement('div'); card.className='glass mb-3';
+  card.innerHTML = `
+    <div class="flex items-center justify-between">
+      <div>
+        ${tip.main.map(n=>`<span class="chip">${n}</span>`).join('')}
+        ${tip.super!=null ? '<span class="badge ml-2">SZ</span><span class="chip super">'+tip.super+'</span>' : ''}
+      </div>
+      <span class="badge">#${idx}</span>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-sm">
+      <div class="badge">6 Richtige gesamt: <b>${a.hit6}</b></div>
+      <div class="badge">5 Richtige gesamt: <b>${a.hit5}</b></div>
+      <div class="badge">4 Richtige gesamt: <b>${a.hit4}</b></div>
+      <div class="badge">3 Richtige gesamt: <b>${a.hit3}</b></div>
+      <div class="badge">Exakt 6: <b>${a.exact}</b></div>
+    </div>
+    <div class="mt-2 flex gap-2 flex-wrap">
+      <button class="btn btn--gray copy-btn">📋 Kopieren</button>
+      <button class="btn btn--gray del-btn">🗑️ Entfernen</button>
+    </div>`;
+  card.querySelector('.copy-btn').onclick = ()=> navigator.clipboard.writeText(`${tip.main.join('-')}${tip.super!=null? ' | SZ:'+tip.super:''}`);
+  card.querySelector('.del-btn').onclick = ()=>{ card.remove(); generated = generated.filter(g=> g!==tip); };
+  return card;
+}
+
+/* ---------- Analyse-Tab ---------- */
+$('#generateBtn').addEventListener('click', async ()=>{
+  if(!draws.length){ alert('Bitte zuerst ein Archiv laden.'); return; }
+  const total = +$('#kombis').value || 1;
+  const out = $('#liveOutput'); out.textContent='';
+  $('#cards').innerHTML='';
+  generated=[]; const seen=new Set();
+  for(let i=1;i<=total;i++){
+    try{
+      let tip = generateOne();
+      let key = tip.main.join('-')+'|'+(tip.super ?? 'x');
+      let guard=0; while(seen.has(key) && guard<10){ tip = generateOne(); key=tip.main.join('-')+'|'+(tip.super ?? 'x'); guard++; }
+      seen.add(key); generated.push(tip);
+      await printTip(out, i, tip);
+      $('#cards').appendChild(tipCard(i, tip));
+    }catch(e){ const err=$('#groupError'); err.classList.remove('hidden'); err.textContent=e.message; break; }
+  }
+});
 $('#clearGeneratedBtn').addEventListener('click', ()=>{ generated=[]; $('#cards').innerHTML=''; $('#liveOutput').textContent=''; buildMap([]); });
-$('#analyseAllBtn').addEventListener('click', ()=>{ if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; } let html='<div class="glass mt-2"><div class="font-bold mb-2">Auswertung (komplettes Archiv)</div>'; html+='<div class="overflow-auto"><table class="text-sm min-w-full"><thead><tr><th class="px-2 py-1 text-left">#</th><th class="px-2 py-1 text-left">Kombi</th><th class="px-2 py-1">6R</th><th class="px-2 py-1">5R</th><th class="px-2 py-1">4R</th><th class="px-2 py-1">3R</th><th class="px-2 py-1">Exakt6</th></tr></thead><tbody>'; generated.forEach((t,i)=>{ const a=analyseVariant(t); const label=t.main.join(' ')+(t.super!=null?' | SZ:'+t.super:''); html+=`<tr class="border-t border-white/10"><td class="px-2 py-1">${i+1}</td><td class="px-2 py-1">${label}</td><td class="px-2 py-1 text-center">${a.hit6}</td><td class="px-2 py-1 text-center">${a.hit5}</td><td class="px-2 py-1 text-center">${a.hit4}</td><td class="px-2 py-1 text-center">${a.hit3}</td><td class="px-2 py-1 text-center">${a.exact}</td></tr>`; }); html+='</tbody></table></div></div>'; $('#analysisBox').innerHTML=html; tab('ana',$('#btn-ana')); });
+
+$('#analyseAllBtn').addEventListener('click', ()=>{
+  if(!generated.length){ alert('Bitte zuerst Varianten generieren.'); return; }
+  let html = '<div class="glass mt-2"><div class="font-bold mb-2">Auswertung (komplettes Archiv)</div>';
+  html += '<div class="overflow-auto"><table class="text-sm min-w-full"><thead><tr>';
+  html += '<th class="px-2 py-1 text-left">#</th><th class="px-2 py-1 text-left">Kombi</th><th class="px-2 py-1">6R</th><th class="px-2 py-1">5R</th><th class="px-2 py-1">4R</th><th class="px-2 py-1">3R</th><th class="px-2 py-1">Exakt6</th>';
+  html += '</tr></thead><tbody>';
+  generated.forEach((t,i)=>{
+    const a=analyseVariant(t);
+    const label = t.main.join(' ') + (t.super!=null? ' | SZ:'+t.super:'');
+    html += `<tr class="border-t border-white/10">
+      <td class="px-2 py-1">${i+1}</td>
+      <td class="px-2 py-1">${label}</td>
+      <td class="px-2 py-1 text-center">${a.hit6}</td>
+      <td class="px-2 py-1 text-center">${a.hit5}</td>
+      <td class="px-2 py-1 text-center">${a.hit4}</td>
+      <td class="px-2 py-1 text-center">${a.hit3}</td>
+      <td class="px-2 py-1 text-center">${a.exact}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div></div>'; $('#analysisBox').innerHTML = html; tab('ana', $('#btn-ana'));
+});
+
+/* ---------- Auto-Start ---------- */
+(function init(){
+  const u=$('#archiveUrl').value.trim(); $('#directDl').href=u;
+  // Beim Öffnen automatisch versuchen, online zu prüfen und zu laden
+  setTimeout(loadLatestAndDetect, 400);
+  // Falls gar kein Netz: lade alte LS-Version (wenn vorhanden)
+  const saved = localStorage.getItem(LS_ARCH);
+  if(saved && !draws.length){ parseArchiveText(saved, false); $('#staleBanner').style.display='flex'; }
+  buildMap([]);
+  // Gruppen-UI initialisieren
+  (function buildGroupUI(){
+    const host=$('#groupControls'); host.innerHTML='';
+    [{label:'1–10',from:1,to:10},{label:'11–20',from:11,to:20},{label:'21–30',from:21,to:30},{label:'31–40',from:31,to:40},{label:'41–49',from:41,to:49}].forEach((g,i)=>{
+      const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
+      row.innerHTML=`<div class="font-bold">${g.label}</div><select class="bg-gray-900 p-2 rounded" data-idx="${i}">${[0,1,2,3,4,5,6].map(v=>`<option value="${v}">${v}</option>`).join('')}</select><div class="text-right text-sm text-gray-400">0</div>`;
+      host.appendChild(row);
+    });
+    $$('#groupControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
+    updateGroupCounters();
+    const hostS=$('#superControls'); hostS.innerHTML='';
+    [{label:'0–4',from:0,to:4},{label:'5–9',from:5,to:9}].forEach((g,i)=>{
+      const row=document.createElement('div'); row.className='grid grid-cols-3 gap-2 items-center';
+      row.innerHTML=`<div class="font-bold">${g.label}</div><select class="bg-gray-900 p-2 rounded super" data-idx="${i}">${[0,1].map(v=>`<option value="${v}">${v}</option>`).join('')}</select><div class="text-right text-sm text-gray-400">0</div>`;
+      hostS.appendChild(row);
+    });
+    $$('#superControls select').forEach(sel=> sel.addEventListener('change', updateGroupCounters));
+    $('#useSuper').addEventListener('change', updateGroupCounters);
+    $('#superManual').addEventListener('change', e=>{ $('#superControls').classList.toggle('hidden', !e.target.checked); updateGroupCounters(); });
+  })();
+})();
+
+function setCounter(el, val, total){ el.textContent = `${val}/${total}`; el.classList.toggle('green', val===total); el.classList.toggle('red', val!==total); }
+function updateGroupCounters(){
+  let sumG=0; $$('#groupControls select').forEach(s=>{ const v=+s.value||0; sumG+=v; s.parentElement.lastChild.textContent=v; });
+  setCounter($('#mainCounter'), sumG, 6);
+  let sumS = $('#useSuper').checked && $('#superManual').checked ?
+    $$('#superControls select').reduce((a,s)=>a+(+s.value||0),0) : 1;
+  setCounter($('#superCounter'), sumS, 1);
+  const err=$('#groupError'); err.classList.add('hidden'); err.textContent='';
+  if(sumG!==6){ err.classList.remove('hidden'); err.textContent='Bitte genau 6 aus den Gruppen wählen.'; }
+  if($('#useSuper').checked && $('#superManual').checked && sumS!==1){ err.classList.remove('hidden'); err.textContent='Superzahl-Summe muss 1 sein.'; }
+}
 </script>
 </body>
 </html>
